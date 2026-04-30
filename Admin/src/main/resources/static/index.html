@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Module · SE_FINAL</title>
+<style>
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #1a202c;
+  --muted: #718096;
+  --primary: #3182ce;
+  --primary-hover: #2b6cb0;
+  --danger: #e53e3e;
+  --danger-hover: #c53030;
+  --success: #38a169;
+  --warning: #d69e2e;
+  --header-bg: #1a202c;
+  --nav-bg: #2d3748;
+  --nav-active: #4a5568;
+
+  --method-get: #3182ce;
+  --method-post: #38a169;
+  --method-put: #d69e2e;
+  --method-delete: #e53e3e;
+  --method-patch: #805ad5;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-width: 1024px; }
+
+.hidden { display: none !important; }
+
+/* ── Login overlay ─────────────────────────────────── */
+#login-overlay {
+  position: fixed; inset: 0; background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.login-card {
+  background: var(--surface); border-radius: 12px; padding: 40px;
+  width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+}
+.login-card h2 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.login-card .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+.login-card .field { margin-bottom: 16px; }
+.login-card label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.login-card input {
+  width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 6px;
+  font-size: 14px; outline: none; transition: border-color .15s;
+}
+.login-card input:focus { border-color: var(--primary); }
+.login-card input.invalid { border-color: var(--danger); }
+.field-error { font-size: 12px; color: var(--danger); margin-top: 4px; min-height: 16px; }
+.form-error { font-size: 13px; color: var(--danger); margin-top: 12px; text-align: center; min-height: 18px; }
+.btn-full { width: 100%; padding: 11px; border-radius: 6px; border: none; cursor: pointer;
+  font-size: 14px; font-weight: 600; transition: background .15s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+.login-card .login-lock { text-align: center; font-size: 28px; margin-bottom: 12px; }
+
+/* ── App shell ─────────────────────────────────────── */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+header {
+  background: var(--header-bg); color: #fff; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between; height: 52px; flex-shrink: 0;
+}
+header h1 { font-size: 16px; font-weight: 600; letter-spacing: .3px; }
+.header-user { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #a0aec0; }
+.header-user strong { color: #e2e8f0; }
+.btn-ghost { background: transparent; border: 1px solid #4a5568; color: #a0aec0; padding: 5px 12px;
+  border-radius: 4px; cursor: pointer; font-size: 12px; transition: all .15s; }
+.btn-ghost:hover { border-color: #718096; color: #e2e8f0; }
+
+nav {
+  background: var(--nav-bg); display: flex; gap: 2px; padding: 0 16px; flex-shrink: 0; flex-wrap: wrap;
+}
+nav button {
+  background: transparent; color: #a0aec0; border: none; padding: 10px 16px;
+  cursor: pointer; font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent;
+  transition: all .15s; white-space: nowrap;
+}
+nav button:hover { color: #e2e8f0; background: rgba(255,255,255,.05); }
+nav button.active { color: #fff; border-bottom-color: var(--primary); }
+.calls-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--danger); color: #fff; border-radius: 10px;
+  font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; padding: 0 4px;
+  margin-left: 4px; vertical-align: middle;
+}
+
+main { flex: 1; padding: 20px 24px; max-width: 1400px; width: 100%; }
+
+section { display: none; }
+section.active { display: block; }
+
+/* ── Cards & layout ────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 20px; margin-bottom: 16px;
+}
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.card h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-title-row h3 { margin-bottom: 0; }
+
+/* ── Forms ─────────────────────────────────────────── */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.field input, .field select {
+  width: 100%; padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 5px;
+  font-size: 13px; outline: none; background: var(--surface); color: var(--text); transition: border-color .15s;
+}
+.field input:focus, .field select:focus { border-color: var(--primary); }
+.field input.invalid { border-color: var(--danger); }
+.field .field-error { font-size: 11px; color: var(--danger); margin-top: 3px; min-height: 14px; }
+
+.filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 13px; }
+.filter-bar label { color: var(--muted); white-space: nowrap; }
+.filter-bar select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 13px; }
+
+/* ── Buttons ───────────────────────────────────────── */
+button.primary {
+  background: var(--primary); color: #fff; border: none; padding: 8px 16px;
+  border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s;
+}
+button.primary:hover { background: var(--primary-hover); }
+button.danger {
+  background: var(--danger); color: #fff; border: none; padding: 4px 10px;
+  border-radius: 4px; cursor: pointer; font-size: 12px; transition: background .15s;
+}
+button.danger:hover { background: var(--danger-hover); }
+button.success {
+  background: var(--success); color: #fff; border: none; padding: 4px 10px;
+  border-radius: 4px; cursor: pointer; font-size: 12px; transition: background .15s;
+}
+button.success:hover { background: #276749; }
+button.secondary {
+  background: transparent; color: var(--primary); border: 1px solid var(--primary);
+  padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all .15s;
+}
+button.secondary:hover { background: var(--primary); color: #fff; }
+button.sm { padding: 3px 8px; font-size: 11px; }
+
+/* ── Tables ────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 8px 10px; background: #f7fafc; font-size: 11px;
+  font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px;
+  border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f7fafc; }
+.row-actions { white-space: nowrap; display: flex; gap: 4px; flex-wrap: wrap; }
+.no-results { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+
+/* ── Badges ────────────────────────────────────────── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-green { background: #c6f6d5; color: #22543d; }
+.badge-red   { background: #fed7d7; color: #742a2a; }
+.badge-blue  { background: #bee3f8; color: #2c5282; }
+.badge-gray  { background: #edf2f7; color: #4a5568; }
+
+/* ── Inline edit row ──────────────────────────────── */
+.edit-row td { background: #fffbeb; padding: 12px 10px; }
+.edit-row .form-grid { margin-bottom: 8px; }
+.edit-row-actions { display: flex; gap: 6px; }
+
+/* ── Recent Calls timeline ─────────────────────────── */
+#calls-list { display: flex; flex-direction: column; gap: 6px; }
+
+.call-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+}
+.call-header {
+  width: 100%; background: none; border: none; cursor: pointer; text-align: left;
+  padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  transition: background .1s;
+}
+.call-header:hover { background: #f7fafc; }
+.call-path { flex: 1; font-family: 'Courier New', monospace; font-size: 13px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.call-chevron { font-size: 10px; color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+.call-card.expanded .call-chevron { transform: rotate(90deg); }
+
+.method-tag { padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  color: #fff; flex-shrink: 0; font-family: monospace; }
+.method-get    { background: var(--method-get); }
+.method-post   { background: var(--method-post); }
+.method-put    { background: var(--method-put); }
+.method-delete { background: var(--method-delete); }
+.method-patch  { background: var(--method-patch); }
+
+.status-tag { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.status-ok   { background: #c6f6d5; color: #22543d; }
+.status-warn { background: #fefcbf; color: #744210; }
+.status-err  { background: #fed7d7; color: #742a2a; }
+
+.call-body { padding: 0 14px 12px; display: none; }
+.call-card.expanded .call-body { display: block; }
+.call-section { margin-top: 10px; }
+.call-section-label { font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+pre {
+  background: #1a202c; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+  font-size: 12px; overflow-x: auto; max-height: 280px; white-space: pre-wrap; word-break: break-all;
+}
+
+.calls-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.calls-toolbar h3 { font-size: 14px; font-weight: 600; }
+
+/* ── Audit log ─────────────────────────────────────── */
+.action-badge { font-family: monospace; font-size: 12px; background: #edf2f7; color: #2d3748;
+  padding: 1px 6px; border-radius: 3px; }
+
+/* ── Toast ─────────────────────────────────────────── */
+#toast {
+  position: fixed; top: 16px; right: 20px; padding: 10px 18px; border-radius: 6px;
+  color: #fff; font-size: 13px; font-weight: 500; opacity: 0;
+  transition: opacity .25s; pointer-events: none; z-index: 200; max-width: 320px;
+}
+#toast.ok  { background: var(--success); opacity: 1; }
+#toast.err { background: var(--danger); opacity: 1; }
+
+/* ── Permissions subsection ────────────────────────── */
+#role-perms-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<!-- ════ Login overlay ════ -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-lock">🔐</div>
+    <h2>Admin Module</h2>
+    <p class="login-sub">Sign in to manage your ERP tenant.</p>
+    <form id="form-login" novalidate>
+      <div class="field">
+        <label>Email address</label>
+        <input id="login-email" type="email" autocomplete="username" placeholder="you@company.com">
+        <p class="field-error" id="err-login-email"></p>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••">
+        <p class="field-error" id="err-login-password"></p>
+      </div>
+      <button type="submit" class="btn-full btn-primary" id="login-btn">Sign in</button>
+      <p class="form-error" id="login-form-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ════ App ════ -->
+<div id="app" class="hidden">
+
+<header>
+  <h1>SE_FINAL · Admin</h1>
+  <div class="header-user">
+    <span>Logged in as <strong id="header-email"></strong></span>
+    <button class="btn-ghost" onclick="doLogout()">Sign out</button>
+  </div>
+</header>
+
+<nav>
+  <button data-tab="companies" class="active">Companies</button>
+  <button data-tab="roles">Roles</button>
+  <button data-tab="users">Users</button>
+  <button data-tab="permissions">Permissions</button>
+  <button data-tab="audit">Audit Log</button>
+  <button data-tab="calls">Recent Calls <span class="calls-badge hidden" id="calls-badge">0</span></button>
+</nav>
+
+<main>
+
+<!-- ── Companies ── -->
+<section id="tab-companies" class="active">
+  <div class="card">
+    <h3>Create company</h3>
+    <form id="form-company" novalidate>
+      <div class="form-grid">
+        <div class="field">
+          <label>Company name *</label>
+          <input name="companyName" placeholder="Acme Ltd.">
+          <p class="field-error" id="err-companyName"></p>
+        </div>
+        <div class="field">
+          <label>Currency</label>
+          <input name="currency" value="USD" maxlength="3" placeholder="USD">
+          <p class="field-error"></p>
+        </div>
+        <div class="field">
+          <label>Tax %</label>
+          <input name="taxDefault" type="number" step="0.01" value="0.00">
+          <p class="field-error"></p>
+        </div>
+        <div class="field">
+          <label>Locale</label>
+          <input name="locale" value="en-US" placeholder="en-US">
+          <p class="field-error"></p>
+        </div>
+        <div class="field">
+          <label>Active</label>
+          <select name="isActive">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+          <p class="field-error"></p>
+        </div>
+      </div>
+      <button type="submit" class="primary">Create company</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>All companies</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Currency</th><th>Tax</th><th>Locale</th><th>Active</th><th>Created</th><th></th></tr></thead>
+        <tbody id="companies-tbody"></tbody>
+      </table>
+    </div>
+    <p class="no-results hidden" id="companies-empty">No companies found.</p>
+  </div>
+</section>
+
+<!-- ── Roles ── -->
+<section id="tab-roles">
+  <div class="card">
+    <div class="filter-bar">
+      <label>Company:</label>
+      <select id="roles-company-filter"></select>
+    </div>
+    <h3>Create role</h3>
+    <form id="form-role" novalidate>
+      <div class="form-grid">
+        <div class="field">
+          <label>Role name *</label>
+          <input name="roleName" placeholder="Manager">
+          <p class="field-error" id="err-roleName"></p>
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <input name="description" placeholder="Optional">
+          <p class="field-error"></p>
+        </div>
+        <div class="field">
+          <label>Active</label>
+          <select name="isActive">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+          <p class="field-error"></p>
+        </div>
+      </div>
+      <button type="submit" class="primary">Create role</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Roles in company</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Active</th><th></th></tr></thead>
+        <tbody id="roles-tbody"></tbody>
+      </table>
+    </div>
+    <p class="no-results hidden" id="roles-empty">No roles found. Create one above.</p>
+    <div id="role-perms-section" class="hidden">
+      <div class="card-title-row">
+        <h3>Permissions for role: <span id="selected-role-name" style="color:var(--primary)"></span></h3>
+      </div>
+      <form id="form-grant-permission" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
+        <div class="field" style="flex:1">
+          <label>Grant permission</label>
+          <select id="permission-select"></select>
+        </div>
+        <button type="submit" class="primary">Grant</button>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Module</th><th>Action</th><th></th></tr></thead>
+          <tbody id="role-perms-tbody"></tbody>
+        </table>
+      </div>
+      <p class="no-results hidden" id="role-perms-empty">No permissions granted to this role yet.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Users ── -->
+<section id="tab-users">
+  <div class="card">
+    <div class="filter-bar">
+      <label>Company:</label>
+      <select id="users-company-filter"></select>
+    </div>
+    <h3>Create user</h3>
+    <form id="form-user" novalidate>
+      <div class="form-grid">
+        <div class="field">
+          <label>First name *</label>
+          <input name="firstName">
+          <p class="field-error" id="err-firstName"></p>
+        </div>
+        <div class="field">
+          <label>Last name *</label>
+          <input name="lastName">
+          <p class="field-error" id="err-lastName"></p>
+        </div>
+        <div class="field">
+          <label>Email *</label>
+          <input name="email" type="email">
+          <p class="field-error" id="err-email"></p>
+        </div>
+        <div class="field">
+          <label>Password *</label>
+          <input name="password" type="password">
+          <p class="field-error" id="err-password"></p>
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <select name="roleId" id="user-role-select"><option value="">(none)</option></select>
+          <p class="field-error"></p>
+        </div>
+        <div class="field">
+          <label>Active</label>
+          <select name="isActive">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+          <p class="field-error"></p>
+        </div>
+        <div class="field">
+          <label>MFA</label>
+          <select name="mfaEnabled">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+          <p class="field-error"></p>
+        </div>
+      </div>
+      <button type="submit" class="primary">Create user</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Users in company</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>MFA</th><th>Lock</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+    <p class="no-results hidden" id="users-empty">No users found. Create one above.</p>
+  </div>
+</section>
+
+<!-- ── Permissions catalog ── -->
+<section id="tab-permissions">
+  <div class="card">
+    <h3>Modules</h3>
+    <div class="table-wrap">
+      <table><thead><tr><th>ID</th><th>Name</th><th>Active</th></tr></thead>
+      <tbody id="modules-tbody"></tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Actions</h3>
+    <div class="table-wrap">
+      <table><thead><tr><th>ID</th><th>Name</th></tr></thead>
+      <tbody id="actions-tbody"></tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <h3>All permissions (module × action)</h3>
+    <div class="table-wrap">
+      <table><thead><tr><th>ID</th><th>Module</th><th>Action</th></tr></thead>
+      <tbody id="permissions-tbody"></tbody></table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Audit Log ── -->
+<section id="tab-audit">
+  <div class="card">
+    <div class="card-title-row">
+      <h3>Audit log — your company (last 200 entries)</h3>
+      <button class="primary" onclick="loadAudit()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Details</th></tr></thead>
+        <tbody id="audit-tbody"></tbody>
+      </table>
+    </div>
+    <p class="no-results hidden" id="audit-empty">No audit entries found.</p>
+  </div>
+</section>
+
+<!-- ── Recent Calls ── -->
+<section id="tab-calls">
+  <div class="card">
+    <div class="card-title-row">
+      <h3>Recent API calls</h3>
+      <button class="secondary" onclick="clearCallLog()">Clear</button>
+    </div>
+    <div id="calls-list">
+      <p class="no-results">No API calls recorded yet.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+</div><!-- #app -->
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+let currentUser = null;
+const callLog = [];
+let newCallCount = 0;
+
+// ── DOM shortcuts ─────────────────────────────────────────────────────────────
+const $  = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    if (res.ok) {
+      currentUser = await res.json();
+      showApp();
+      loadCompanies().catch(err => toast(err.message, false));
+    } else {
+      showLoginScreen();
+    }
+  } catch {
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  $('#login-overlay').classList.remove('hidden');
+  $('#app').classList.add('hidden');
+  setTimeout(() => $('#login-email').focus(), 50);
+}
+
+function showApp() {
+  $('#login-overlay').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  $('#header-email').textContent = currentUser.email;
+}
+
+// ── Login form ────────────────────────────────────────────────────────────────
+$('#form-login').addEventListener('submit', async e => {
+  e.preventDefault();
+  clearFieldError('err-login-email');
+  clearFieldError('err-login-password');
+  $('#login-form-error').textContent = '';
+
+  const emailEl = $('#login-email');
+  const passEl  = $('#login-password');
+  const email   = emailEl.value.trim();
+  const password = passEl.value;
+
+  let valid = true;
+  if (!email) { setFieldError('err-login-email', 'Email is required'); emailEl.classList.add('invalid'); valid = false; }
+  if (!password) { setFieldError('err-login-password', 'Password is required'); passEl.classList.add('invalid'); valid = false; }
+  if (!valid) return;
+
+  const btn = $('#login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    recordCall('POST', '/api/auth/login', { email, password: '●●●●●●●●' }, res.status, data, 0);
+    if (!res.ok) {
+      $('#login-form-error').textContent = data.detail || 'Login failed — check your credentials';
+    } else {
+      currentUser = data;
+      showApp();
+      loadCompanies().catch(err => toast(err.message, false));
+    }
+  } catch (err) {
+    $('#login-form-error').textContent = 'Network error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+});
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+async function doLogout() {
+  try {
+    const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    recordCall('POST', '/api/auth/logout', null, res.status, null, 0);
+  } catch { /* best-effort */ }
+  currentUser = null;
+  callLog.length = 0;
+  newCallCount = 0;
+  updateCallsBadge();
+  showLoginScreen();
+}
+
+// ── API helper ────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const t0 = Date.now();
+  const opts = { method, credentials: 'same-origin', headers: {} };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, opts);
+  const dur = Date.now() - t0;
+  const text = await res.text();
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch { parsed = text || null; }
+
+  recordCall(method, path, body, res.status, parsed, dur);
+
+  if (res.status === 401) {
+    currentUser = null;
+    showLoginScreen();
+    throw new Error('Session expired — please sign in again');
+  }
+  if (!res.ok) {
+    const msg = (parsed && typeof parsed === 'object')
+      ? (parsed.detail || parsed.message || parsed.title || `HTTP ${res.status}`)
+      : (text || `HTTP ${res.status}`);
+    throw new Error(msg);
+  }
+  return parsed;
+}
+
+// ── Call log ──────────────────────────────────────────────────────────────────
+function recordCall(method, path, reqBody, status, resBody, duration) {
+  callLog.unshift({ ts: new Date(), method, path, status, reqBody, resBody, duration });
+  if (callLog.length > 100) callLog.pop();
+
+  const callsActive = $('#tab-calls').classList.contains('active');
+  if (!callsActive) {
+    newCallCount++;
+    updateCallsBadge();
+  } else {
+    renderCallLog();
+  }
+}
+
+function updateCallsBadge() {
+  const b = $('#calls-badge');
+  if (newCallCount > 0) { b.textContent = newCallCount; b.classList.remove('hidden'); }
+  else { b.classList.add('hidden'); }
+}
+
+function clearCallLog() {
+  callLog.length = 0;
+  renderCallLog();
+}
+
+function renderCallLog() {
+  const container = $('#calls-list');
+  if (!callLog.length) {
+    container.innerHTML = '<p class="no-results">No API calls recorded yet.</p>';
+    return;
+  }
+  container.innerHTML = callLog.map((c, i) => {
+    const statusCls = c.status < 300 ? 'ok' : c.status < 500 ? 'warn' : 'err';
+    const meth = c.method.toLowerCase();
+    const hasBody = c.call_body_shown; // persisted expansion state
+    return `<div class="call-card" id="cc-${i}">
+      <button class="call-header" onclick="toggleCall(${i})">
+        <span class="method-tag method-${meth}">${c.method}</span>
+        <span class="call-path">${escapeHtml(c.path)}</span>
+        <span class="status-tag status-${statusCls}">${c.status}</span>
+        <span class="call-meta">${c.duration}ms &middot; ${relativeTime(c.ts)}</span>
+        <span class="call-chevron">&#9654;</span>
+      </button>
+      <div class="call-body">
+        ${c.reqBody !== undefined && c.reqBody !== null
+          ? `<div class="call-section"><p class="call-section-label">Request body</p><pre>${escapeHtml(JSON.stringify(c.reqBody, null, 2))}</pre></div>`
+          : ''}
+        <div class="call-section">
+          <p class="call-section-label">Response (${c.status})</p>
+          <pre>${escapeHtml(typeof c.resBody === 'string' ? c.resBody : JSON.stringify(c.resBody, null, 2))}</pre>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCall(i) {
+  const card = $(`#cc-${i}`);
+  card.classList.toggle('expanded');
+}
+
+function relativeTime(date) {
+  const diff = Date.now() - date;
+  if (diff < 5000)   return 'just now';
+  if (diff < 60000)  return Math.round(diff / 1000) + 's ago';
+  if (diff < 3600000) return Math.round(diff / 60000) + 'm ago';
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+$$('nav button').forEach(btn => btn.addEventListener('click', () => {
+  $$('nav button').forEach(b => b.classList.remove('active'));
+  $$('main section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.dataset.tab;
+  $(`#tab-${tab}`).classList.add('active');
+
+  if (tab === 'permissions') loadCatalog();
+  if (tab === 'audit') loadAudit();
+  if (tab === 'calls') {
+    newCallCount = 0;
+    updateCallsBadge();
+    renderCallLog();
+  }
+}));
+
+// ── Companies ─────────────────────────────────────────────────────────────────
+async function loadCompanies() {
+  const list = await api('GET', '/api/companies');
+  const tbody = $('#companies-tbody');
+  const empty = $('#companies-empty');
+
+  if (!list.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+  } else {
+    empty.classList.add('hidden');
+    tbody.innerHTML = list.map(c => {
+      const fmt = makeFmt(c.locale, c.currency);
+      return `<tr>
+        <td>${c.companyId}</td>
+        <td><strong>${escapeHtml(c.companyName)}</strong></td>
+        <td><span class="badge badge-blue">${escapeHtml(c.currency)}</span></td>
+        <td>${fmt.tax(c.taxDefault)}</td>
+        <td><code>${escapeHtml(c.locale)}</code></td>
+        <td>${activeBadge(c.active ?? c.isActive)}</td>
+        <td>${fmt.date(c.createdAt)}</td>
+        <td><button class="secondary sm" onclick="showEditCompany(${c.companyId})">Edit</button></td>
+      </tr>
+      <tr class="edit-row hidden" id="edit-company-${c.companyId}">
+        <td colspan="8">
+          <form onsubmit="submitEditCompany(event, ${c.companyId})">
+            <div class="form-grid">
+              <div class="field"><label>Name *</label><input name="companyName" value="${escapeAttr(c.companyName)}"></div>
+              <div class="field"><label>Currency</label><input name="currency" value="${escapeAttr(c.currency)}" maxlength="3"></div>
+              <div class="field"><label>Tax %</label><input name="taxDefault" type="number" step="0.01" value="${c.taxDefault}"></div>
+              <div class="field"><label>Locale</label><input name="locale" value="${escapeAttr(c.locale)}"></div>
+              <div class="field"><label>Active</label><select name="isActive"><option value="true" ${(c.active ?? c.isActive) ? 'selected' : ''}>Yes</option><option value="false" ${!(c.active ?? c.isActive) ? 'selected' : ''}>No</option></select></div>
+            </div>
+            <div class="edit-row-actions">
+              <button type="submit" class="primary">Save</button>
+              <button type="button" class="secondary" onclick="hideEditCompany(${c.companyId})">Cancel</button>
+            </div>
+          </form>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  refreshCompanyDropdowns(list);
+}
+
+function showEditCompany(id) {
+  $(`#edit-company-${id}`).classList.toggle('hidden');
+}
+function hideEditCompany(id) {
+  $(`#edit-company-${id}`).classList.add('hidden');
+}
+
+async function submitEditCompany(e, id) {
+  e.preventDefault();
+  const data = parseForm(e.target);
+  try {
+    await api('PUT', `/api/companies/${id}`, data);
+    toast('Company updated');
+    await loadCompanies();
+  } catch (err) { toast(err.message, false); }
+}
+
+$('#form-company').addEventListener('submit', async e => {
+  e.preventDefault();
+  clearFieldError('err-companyName');
+  const data = parseForm(e.target);
+  if (!data.companyName) { setFieldError('err-companyName', 'Company name is required'); return; }
+  try {
+    await api('POST', '/api/companies', data);
+    e.target.reset();
+    e.target.currency.value = 'USD';
+    e.target.locale.value = 'en-US';
+    e.target.taxDefault.value = '0.00';
+    toast('Company created');
+    await loadCompanies();
+  } catch (err) { toast(err.message, false); }
+});
+
+function refreshCompanyDropdowns(list) {
+  const opts = list.map(c => `<option value="${c.companyId}">${escapeHtml(c.companyName)} (#${c.companyId})</option>`).join('');
+  ['#roles-company-filter', '#users-company-filter'].forEach(sel => {
+    const el = $(sel);
+    const prev = el.value;
+    el.innerHTML = opts;
+    if (prev && list.some(c => String(c.companyId) === prev)) el.value = prev;
+  });
+}
+
+// ── Roles ─────────────────────────────────────────────────────────────────────
+let selectedRoleId = null;
+
+async function loadRoles() {
+  const cid = $('#roles-company-filter').value;
+  if (!cid) return;
+  const list = await api('GET', `/api/companies/${cid}/roles`);
+  const empty = $('#roles-empty');
+  const tbody = $('#roles-tbody');
+  if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); }
+  else {
+    empty.classList.add('hidden');
+    tbody.innerHTML = list.map(r => `<tr ${r.roleId === selectedRoleId ? 'class="selected"' : ''}>
+      <td>${r.roleId}</td>
+      <td><strong>${escapeHtml(r.roleName)}</strong></td>
+      <td>${escapeHtml(r.description || '')}</td>
+      <td>${activeBadge(r.active ?? r.isActive)}</td>
+      <td><button class="secondary sm" onclick="selectRole(${r.roleId}, '${escapeAttr(r.roleName)}')">Permissions</button></td>
+    </tr>`).join('');
+  }
+  if (selectedRoleId && !list.some(r => r.roleId === selectedRoleId)) {
+    selectedRoleId = null;
+    $('#role-perms-section').classList.add('hidden');
+  }
+}
+
+$('#roles-company-filter').addEventListener('change', loadRoles);
+
+$('#form-role').addEventListener('submit', async e => {
+  e.preventDefault();
+  clearFieldError('err-roleName');
+  const cid = $('#roles-company-filter').value;
+  if (!cid) { toast('Pick a company first', false); return; }
+  const data = parseForm(e.target);
+  if (!data.roleName) { setFieldError('err-roleName', 'Role name is required'); return; }
+  try {
+    await api('POST', `/api/companies/${cid}/roles`, data);
+    e.target.reset();
+    toast('Role created');
+    await loadRoles();
+  } catch (err) { toast(err.message, false); }
+});
+
+async function selectRole(id, name) {
+  selectedRoleId = id;
+  $('#selected-role-name').textContent = `${name} (#${id})`;
+  $('#role-perms-section').classList.remove('hidden');
+  await Promise.all([loadRoles(), loadRolePermissions(), loadAllPermissionsIntoSelect()]);
+}
+
+async function loadRolePermissions() {
+  const list = await api('GET', `/api/roles/${selectedRoleId}/permissions`);
+  const tbody = $('#role-perms-tbody');
+  const empty = $('#role-perms-empty');
+  if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); }
+  else {
+    empty.classList.add('hidden');
+    tbody.innerHTML = list.map(p => `<tr>
+      <td>${p.permissionId}</td>
+      <td>${escapeHtml(p.moduleName)}</td>
+      <td>${escapeHtml(p.actionName)}</td>
+      <td><button class="danger sm" onclick="revokePermission(${p.permissionId})">Revoke</button></td>
+    </tr>`).join('');
+  }
+}
+
+async function revokePermission(permId) {
+  try {
+    await api('DELETE', `/api/roles/${selectedRoleId}/permissions/${permId}`);
+    toast('Permission revoked');
+    await loadRolePermissions();
+  } catch (err) { toast(err.message, false); }
+}
+
+async function loadAllPermissionsIntoSelect() {
+  const list = await api('GET', '/api/permissions');
+  $('#permission-select').innerHTML = list.map(p =>
+    `<option value="${p.permissionId}">${escapeHtml(p.moduleName)}.${escapeHtml(p.actionName)} (#${p.permissionId})</option>`
+  ).join('');
+}
+
+$('#form-grant-permission').addEventListener('submit', async e => {
+  e.preventDefault();
+  const permId = $('#permission-select').value;
+  try {
+    await api('POST', `/api/roles/${selectedRoleId}/permissions/${permId}`);
+    toast('Permission granted');
+    await loadRolePermissions();
+  } catch (err) { toast(err.message, false); }
+});
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const cid = $('#users-company-filter').value;
+  if (!cid) return;
+  const [userList, roleList] = await Promise.all([
+    api('GET', `/api/companies/${cid}/users`),
+    api('GET', `/api/companies/${cid}/roles`)
+  ]);
+  const roleMap = Object.fromEntries(roleList.map(r => [r.roleId, r.roleName]));
+  const tbody = $('#users-tbody');
+  const empty = $('#users-empty');
+
+  if (!userList.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); }
+  else {
+    empty.classList.add('hidden');
+    tbody.innerHTML = userList.map(u => {
+      const isActive = u.active ?? u.isActive;
+      const locked = u.lockedUntil ? `<span class="badge badge-red" title="${escapeHtml(u.lockedUntil)}">Locked</span>` : '';
+      return `<tr>
+        <td>${u.userId}</td>
+        <td>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</td>
+        <td>${escapeHtml(u.email)}</td>
+        <td>${u.roleId ? escapeHtml(roleMap[u.roleId] || '?') + ` <small>(#${u.roleId})</small>` : '<em style="color:var(--muted)">none</em>'}</td>
+        <td>${activeBadge(isActive)}</td>
+        <td>${u.mfaEnabled ? '<span class="badge badge-blue">On</span>' : '<span class="badge badge-gray">Off</span>'}</td>
+        <td>${locked}</td>
+        <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''}</td>
+        <td><div class="row-actions">
+          ${isActive
+            ? `<button class="danger sm" onclick="deactivateUser(${u.userId})">Deactivate</button>`
+            : `<button class="success sm" onclick="activateUser(${u.userId})">Activate</button>`}
+          <button class="secondary sm" onclick="resetPassword(${u.userId})">Reset pwd</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  $('#user-role-select').innerHTML = '<option value="">(none)</option>' +
+    roleList.map(r => `<option value="${r.roleId}">${escapeHtml(r.roleName)} (#${r.roleId})</option>`).join('');
+}
+
+$('#users-company-filter').addEventListener('change', loadUsers);
+
+$('#form-user').addEventListener('submit', async e => {
+  e.preventDefault();
+  ['err-firstName','err-lastName','err-email','err-password'].forEach(clearFieldError);
+  const cid = $('#users-company-filter').value;
+  if (!cid) { toast('Pick a company first', false); return; }
+  const data = parseForm(e.target);
+  let valid = true;
+  if (!data.firstName) { setFieldError('err-firstName', 'First name is required'); valid = false; }
+  if (!data.lastName)  { setFieldError('err-lastName',  'Last name is required');  valid = false; }
+  if (!data.email)     { setFieldError('err-email',     'Email is required');      valid = false; }
+  if (!data.password)  { setFieldError('err-password',  'Password is required');   valid = false; }
+  if (!valid) return;
+  try {
+    await api('POST', `/api/companies/${cid}/users`, data);
+    e.target.reset();
+    toast('User created');
+    await loadUsers();
+  } catch (err) { toast(err.message, false); }
+});
+
+async function deactivateUser(id) {
+  try {
+    await api('POST', `/api/users/${id}/deactivate`);
+    toast('User deactivated');
+    await loadUsers();
+  } catch (err) { toast(err.message, false); }
+}
+
+async function activateUser(id) {
+  try {
+    await api('POST', `/api/users/${id}/activate`);
+    toast('User activated');
+    await loadUsers();
+  } catch (err) { toast(err.message, false); }
+}
+
+async function resetPassword(id) {
+  const newPwd = window.prompt('Enter new password for user #' + id + ':');
+  if (newPwd === null) return;
+  if (!newPwd.trim()) { toast('Password cannot be empty', false); return; }
+  try {
+    await api('POST', `/api/users/${id}/reset-password`, { newPassword: newPwd });
+    toast('Password reset successfully');
+  } catch (err) { toast(err.message, false); }
+}
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+async function loadCatalog() {
+  const [mods, acts, perms] = await Promise.all([
+    api('GET', '/api/modules'),
+    api('GET', '/api/actions'),
+    api('GET', '/api/permissions')
+  ]);
+  $('#modules-tbody').innerHTML = mods.map(m =>
+    `<tr><td>${m.moduleId}</td><td>${escapeHtml(m.moduleName)}</td><td>${activeBadge(m.active ?? m.isActive)}</td></tr>`
+  ).join('');
+  $('#actions-tbody').innerHTML = acts.map(a =>
+    `<tr><td>${a.actionId}</td><td>${escapeHtml(a.actionName)}</td></tr>`
+  ).join('');
+  $('#permissions-tbody').innerHTML = perms.map(p =>
+    `<tr><td>${p.permissionId}</td><td>${escapeHtml(p.moduleName)}</td><td>${escapeHtml(p.actionName)}</td></tr>`
+  ).join('');
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+async function loadAudit() {
+  try {
+    const list = await api('GET', '/api/audit-log?limit=200');
+    const tbody = $('#audit-tbody');
+    const empty = $('#audit-empty');
+    if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    tbody.innerHTML = list.map(e => `<tr>
+      <td style="white-space:nowrap">${e.createdAt ? new Date(e.createdAt).toLocaleString() : ''}</td>
+      <td>${escapeHtml(e.userEmail || (e.userId ? '#' + e.userId : 'system'))}</td>
+      <td><span class="action-badge">${escapeHtml(e.action)}</span></td>
+      <td>${escapeHtml(e.entityType)}</td>
+      <td>${e.entityId ?? ''}</td>
+      <td style="color:var(--muted)">${escapeHtml(e.details || '')}</td>
+    </tr>`).join('');
+  } catch (err) { toast(err.message, false); }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function parseForm(form) {
+  const o = {};
+  new FormData(form).forEach((v, k) => {
+    if (v === '') return;
+    if (v === 'true')  { o[k] = true;  return; }
+    if (v === 'false') { o[k] = false; return; }
+    const noConvert = new Set(['firstName','lastName','email','password','companyName','roleName','description','currency','locale','newPassword']);
+    o[k] = (!noConvert.has(k) && !isNaN(v) && v !== '') ? Number(v) : v;
+  });
+  return o;
+}
+
+function activeBadge(active) {
+  return active
+    ? '<span class="badge badge-green">Active</span>'
+    : '<span class="badge badge-red">Inactive</span>';
+}
+
+function setFieldError(id, msg) {
+  const el = $(`#${id}`);
+  if (el) el.textContent = msg;
+}
+function clearFieldError(id) {
+  const el = $(`#${id}`);
+  if (el) el.textContent = '';
+}
+
+function toast(msg, ok = true) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = ok ? 'ok' : 'err';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function makeFmt(locale, currency) {
+  let taxFmt, dateFmt;
+  try { taxFmt = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }); } catch { taxFmt = null; }
+  try { dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }); } catch { dateFmt = null; }
+  return {
+    tax: v => {
+      if (v == null) return '';
+      try { return taxFmt ? taxFmt.format(v / 100) : v + '%'; } catch { return v + '%'; }
+    },
+    date: s => {
+      if (!s) return '';
+      try { return dateFmt ? dateFmt.format(new Date(s)) : new Date(s).toLocaleDateString(); } catch { return s; }
+    }
+  };
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
