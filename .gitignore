@@ -37,6 +37,9 @@ build/
 References/
 references/
 
+### Environment Variables ###
+.env
+
 # IntelliJ
 .idea/
 *.iml
@@ -47,3 +50,4 @@ GEMINI.md
 # Auto-generated GitHub tooling
 .github/
 
+JIRA_BACKLOG.md
