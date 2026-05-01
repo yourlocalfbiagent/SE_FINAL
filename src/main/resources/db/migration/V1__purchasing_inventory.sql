@@ -103,13 +103,41 @@ CREATE TABLE stock_movements (
     reference_id INT,
     moved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CHECK (quantity_ordered > 0)
-CHECK (unit_cost >= 0)
-CHECK (line_total >= 0)
 
 
+ALTER TABLE purchase_order_lines
+ADD CONSTRAINT chk_po_line_qty CHECK (quantity_ordered > 0),
+ADD CONSTRAINT chk_po_line_unit_cost CHECK (unit_cost >= 0),
+ADD CONSTRAINT chk_po_line_total CHECK (line_total >= 0);
 
-CREATE INDEX idx_po_partner_id ON purchase_orders(partner_id);
-CREATE INDEX idx_po_created_by ON purchase_orders(created_by);
-CREATE INDEX idx_pol_po_id ON purchase_order_lines(po_id);
-CREATE INDEX idx_pol_product_id ON purchase_order_lines(product_id);
+CREATE INDEX idx_purchase_orders_partner_id ON purchase_orders(partner_id);
+CREATE INDEX idx_purchase_orders_created_by ON purchase_orders(created_by);
+CREATE INDEX idx_purchase_order_lines_po_id ON purchase_order_lines(po_id);
+CREATE INDEX idx_purchase_order_lines_product_id ON purchase_order_lines(product_id);
+
+
+ALTER TABLE supplier_bill_lines
+ADD CONSTRAINT chk_supplier_bill_line_qty CHECK (quantity > 0),
+ADD CONSTRAINT chk_supplier_bill_line_unit_cost CHECK (unit_cost >= 0),
+ADD CONSTRAINT chk_supplier_bill_line_total CHECK (line_total >= 0);
+
+ALTER TABLE goods_receipt_lines
+ADD CONSTRAINT chk_goods_receipt_qty CHECK (quantity_received > 0);
+
+ALTER TABLE inventory_count_lines
+ADD CONSTRAINT chk_inventory_system_qty CHECK (system_quantity >= 0),
+ADD CONSTRAINT chk_inventory_counted_qty CHECK (counted_quantity >= 0);
+
+ALTER TABLE stock_movements
+ADD CONSTRAINT chk_stock_quantity_change CHECK (quantity_change <> 0);
+
+CREATE INDEX idx_supplier_bills_partner_id ON supplier_bills(partner_id);
+CREATE INDEX idx_supplier_bills_po_id ON supplier_bills(po_id);
+CREATE INDEX idx_supplier_bill_lines_bill_id ON supplier_bill_lines(bill_id);
+CREATE INDEX idx_goods_receipts_po_id ON goods_receipts(po_id);
+CREATE INDEX idx_goods_receipt_lines_receipt_id ON goods_receipt_lines(receipt_id);
+CREATE INDEX idx_inventory_counts_warehouse_id ON inventory_counts(warehouse_id);
+CREATE INDEX idx_inventory_count_lines_count_id ON inventory_count_lines(count_id);
+CREATE INDEX idx_inventory_discrepancies_count_line_id ON inventory_discrepancies(count_line_id);
+CREATE INDEX idx_stock_movements_product_id ON stock_movements(product_id);
+CREATE INDEX idx_stock_movements_location_id ON stock_movements(location_id);
