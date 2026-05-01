@@ -103,3 +103,13 @@ CREATE TABLE stock_movements (
     reference_id INT,
     moved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CHECK (quantity_ordered > 0)
+CHECK (unit_cost >= 0)
+CHECK (line_total >= 0)
+
+
+
+CREATE INDEX idx_po_partner_id ON purchase_orders(partner_id);
+CREATE INDEX idx_po_created_by ON purchase_orders(created_by);
+CREATE INDEX idx_pol_po_id ON purchase_order_lines(po_id);
+CREATE INDEX idx_pol_product_id ON purchase_order_lines(product_id);
