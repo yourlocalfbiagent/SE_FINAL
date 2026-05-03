@@ -44,5 +44,4 @@ public class SessionStore {
         if (id != null) sessions.remove(id);
     }
 
-    public Duration idleTimeout() { return idleTimeout; }
 }
