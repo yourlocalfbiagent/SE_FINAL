@@ -58,6 +58,28 @@ public class PermissionDao {
         }
     }
 
+    /** FR-02: true if the role has the given module+action permission, or roleId is null (super-admin). */
+    public boolean hasPermission(Integer roleId, String moduleName, String actionName) {
+        if (roleId == null) return true;
+        String sql = """
+                SELECT 1 FROM role_permissions rp
+                JOIN permissions p ON p.permission_id = rp.permission_id
+                JOIN modules m     ON m.module_id     = p.module_id
+                JOIN actions a     ON a.action_id     = p.action_id
+                WHERE rp.role_id = ? AND m.module_name = ? AND a.action_name = ?
+                LIMIT 1
+                """;
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, roleId);
+            ps.setString(2, moduleName);
+            ps.setString(3, actionName);
+            try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to check permission", e);
+        }
+    }
+
     private Permission map(ResultSet rs) throws SQLException {
         return new Permission(
                 rs.getInt("permission_id"),

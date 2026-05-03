@@ -97,21 +97,6 @@ public class RoleDao {
         }
     }
 
-    public List<Integer> findPermissionIdsForRole(int roleId) {
-        String sql = "SELECT permission_id FROM role_permissions WHERE role_id = ? ORDER BY permission_id";
-        List<Integer> out = new ArrayList<>();
-        try (Connection conn = ds.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, roleId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) out.add(rs.getInt(1));
-            }
-            return out;
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to load permissions for role " + roleId, e);
-        }
-    }
-
     private Role map(ResultSet rs) throws SQLException {
         return new Role(
                 rs.getInt("role_id"),
