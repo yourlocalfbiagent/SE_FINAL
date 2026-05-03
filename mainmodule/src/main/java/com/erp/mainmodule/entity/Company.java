@@ -42,6 +42,14 @@ public class Company {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+
+        if (isActive == null) {
+            isActive = true;
+        }
+
+        if (taxDefault == null) {
+            taxDefault = BigDecimal.ZERO;
+        }
     }
 }
 

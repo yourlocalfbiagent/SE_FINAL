@@ -2,6 +2,7 @@ package com.erp.mainmodule.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,34 +20,23 @@ public class Product {
     @Column(name = "product_id")
     private Integer productId;
 
-    @Column(name = "product_name", nullable = false, length = 255)
+    @Column(name = "product_name", nullable = false)
     private String productName;
 
-    @Column(name = "sku", nullable = false, unique = true, length = 100)
+    @Column(name = "sku", nullable = false, unique = true)
     private String sku;
 
-    @Column(name = "unit_of_measure", length = 50)
-    private String unitOfMeasure;
+    @Column(name = "cost_price", nullable = false)
+    private BigDecimal costPrice;
 
-    @Column(name = "cost_price", nullable = false, precision = 15, scale = 4)
-    @Builder.Default
-    private BigDecimal costPrice = BigDecimal.ZERO;
+    @Column(name = "selling_price", nullable = false)
+    private BigDecimal sellingPrice;
 
-    @Column(name = "selling_price", nullable = false, precision = 15, scale = 4)
-    @Builder.Default
-    private BigDecimal sellingPrice = BigDecimal.ZERO;
+    @Column(name = "category_id")
+    private Integer categoryId;
 
-    @Column(name = "reorder_level", nullable = false, precision = 15, scale = 4)
-    @Builder.Default
-    private BigDecimal reorderLevel = BigDecimal.ZERO;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private ProductCategory category;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "company_id", nullable = false)
-    private Company company;
+    @Column(name = "company_id", nullable = false)
+    private Integer companyId;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
@@ -57,7 +47,9 @@ public class Product {
 
     @PrePersist
     protected void onCreate() {
+        if (isActive == null) {
+            isActive = true;
+        }
         this.createdAt = LocalDateTime.now();
     }
 }
-

@@ -56,5 +56,9 @@ public class BusinessPartner {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+
+        if (isActive == null) {
+            isActive = true;
+        }
     }
 }

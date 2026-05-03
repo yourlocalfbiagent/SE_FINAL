@@ -60,5 +60,17 @@ public class User {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+
+        if (isActive == null) {
+            isActive = true;
+        }
+
+        if (mfaEnabled == null) {
+            mfaEnabled = false;
+        }
+
+        if (failedLoginAttempts == null) {
+            failedLoginAttempts = 0;
+        }
     }
 }
