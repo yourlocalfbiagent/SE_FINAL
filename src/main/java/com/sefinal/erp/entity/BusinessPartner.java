@@ -1,4 +1,4 @@
-package com.app.se_final_sales.entity;
+package com.sefinal.erp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -34,9 +34,9 @@ public class BusinessPartner {
     private String country;
 
     @Column(length = 50)
-    private String type; // e.g., CUSTOMER, SUPPLIER
+    private String type;
 
-    private Long companyId; // References external COMPANIES
+    private Long companyId;
 
     @Builder.Default
     private Boolean isActive = true;

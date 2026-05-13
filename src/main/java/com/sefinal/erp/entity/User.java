@@ -1,4 +1,4 @@
-package com.app.se_final_sales.entity;
+package com.sefinal.erp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,9 +28,9 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
-    private Long companyId; // References external COMPANIES
+    private Long companyId;
 
-    private Long roleId;    // References external ROLES
+    private Long roleId;
 
     @Builder.Default
     private Boolean isActive = true;

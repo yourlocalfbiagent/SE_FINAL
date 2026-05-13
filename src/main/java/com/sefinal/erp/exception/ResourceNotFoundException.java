@@ -1,4 +1,4 @@
-package com.app.se_final_sales.exception;
+package com.sefinal.erp.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;

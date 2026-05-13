@@ -1,4 +1,4 @@
-package com.app.se_final_sales.entity;
+package com.sefinal.erp.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,9 +36,9 @@ public class Product {
     @Builder.Default
     private BigDecimal reorderLevel = BigDecimal.ZERO;
 
-    private Long categoryId; // References external PRODUCT_CATEGORIES
+    private Long categoryId;
 
-    private Long companyId;  // References external COMPANIES
+    private Long companyId;
 
     @Builder.Default
     private Boolean isActive = true;

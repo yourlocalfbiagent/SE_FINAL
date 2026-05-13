@@ -1,7 +1,0 @@
--- To be completed after shared tables are finalized.
--- Expected shared tables:
--- users
--- business_partners
--- products
--- warehouses
--- inventory_locations
