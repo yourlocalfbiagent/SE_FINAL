@@ -1,8 +1,21 @@
 HELP.md
-target/
 .mvn/wrapper/maven-wrapper.jar
+
+# Build output
+target/
+*.class
 !**/src/main/**/target/
 !**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
 
 ### STS ###
 .apt_generated
@@ -13,36 +26,29 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+# OS
+Thumbs.db
+.DS_Store
 
-### Mermaid and References ###
+# Mermaid and References ###
 *.mermaid
 References/
 references/
 
-### Environment Variables ###
+# Secrets
 .env
+.env.*
 
-# IntelliJ
-.idea/
-*.iml
+# Claude Code
+.claude/
+CLAUDE.md
 
 # AI files
 GEMINI.md

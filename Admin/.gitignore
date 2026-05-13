@@ -1,0 +1,11 @@
+target/
+.idea/
+*.iml
+.vscode/
+*.class
+.env
+.env.*
+.claude/
+CLAUDE.md
+Thumbs.db
+.DS_Store
