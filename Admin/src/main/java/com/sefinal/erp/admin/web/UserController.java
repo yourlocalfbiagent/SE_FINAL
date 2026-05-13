@@ -2,12 +2,13 @@ package com.sefinal.erp.admin.web;
 
 import com.sefinal.erp.admin.auth.AuthInterceptor;
 import com.sefinal.erp.admin.auth.CurrentUser;
-import com.sefinal.erp.admin.dao.AuditDao;
-import com.sefinal.erp.admin.dao.CompanyDao;
-import com.sefinal.erp.admin.dao.RoleDao;
-import com.sefinal.erp.admin.dao.UserDao;
+import com.sefinal.erp.admin.model.AuditLog;
 import com.sefinal.erp.admin.model.Role;
 import com.sefinal.erp.admin.model.User;
+import com.sefinal.erp.admin.repository.AuditLogRepository;
+import com.sefinal.erp.admin.repository.CompanyRepository;
+import com.sefinal.erp.admin.repository.RoleRepository;
+import com.sefinal.erp.admin.repository.UserRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.CreateUserRequest;
 import com.sefinal.erp.admin.web.dto.Dtos.UpdatePasswordRequest;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,25 +27,25 @@ import java.util.List;
 @RestController
 public class UserController {
 
-    private final UserDao users;
-    private final RoleDao roles;
-    private final CompanyDao companies;
+    private final UserRepository users;
+    private final RoleRepository roles;
+    private final CompanyRepository companies;
     private final PasswordEncoder passwordEncoder;
-    private final AuditDao audit;
+    private final AuditLogRepository auditRepo;
 
-    public UserController(UserDao users, RoleDao roles, CompanyDao companies,
-                          PasswordEncoder passwordEncoder, AuditDao audit) {
-        this.users = users;
-        this.roles = roles;
-        this.companies = companies;
+    public UserController(UserRepository users, RoleRepository roles, CompanyRepository companies,
+                          PasswordEncoder passwordEncoder, AuditLogRepository auditRepo) {
+        this.users           = users;
+        this.roles           = roles;
+        this.companies       = companies;
         this.passwordEncoder = passwordEncoder;
-        this.audit = audit;
+        this.auditRepo       = auditRepo;
     }
 
     @GetMapping("/api/companies/{companyId}/users")
     public List<User> listForCompany(@PathVariable int companyId) {
         ensureCompany(companyId);
-        return users.findByCompany(companyId);
+        return users.findByCompanyIdOrderByUserId(companyId);
     }
 
     @PostMapping("/api/companies/{companyId}/users")
@@ -59,28 +60,27 @@ public class UserController {
         if (req.roleId() != null) {
             Role role = roles.findById(req.roleId())
                     .orElseThrow(() -> new NotFoundException("role " + req.roleId() + " not found"));
-            if (!role.companyId().equals(companyId)) {
+            if (!role.getCompanyId().equals(companyId)) {
                 throw new BadRequestException("role " + req.roleId() + " belongs to a different company");
             }
         }
 
-        User created = users.create(new User(
-                null,
-                req.firstName(),
-                req.lastName(),
-                req.email(),
-                passwordEncoder.encode(req.password()),
-                companyId,
-                req.roleId(),
-                req.isActive()  == null || req.isActive(),
-                req.mfaEnabled() != null && req.mfaEnabled(),
-                0,
-                null,
-                null
-        ));
+        User u = new User();
+        u.setFirstName(req.firstName());
+        u.setLastName(req.lastName());
+        u.setEmail(req.email());
+        u.setPasswordHash(passwordEncoder.encode(req.password()));
+        u.setCompanyId(companyId);
+        u.setRoleId(req.roleId());
+        u.setActive(req.isActive() == null || req.isActive());
+        u.setMfaEnabled(req.mfaEnabled() != null && req.mfaEnabled());
+        u.setFailedLoginAttempts(0);
+        User created = users.save(u);
+
         CurrentUser cu = AuthInterceptor.current(request);
-        audit.log(cu.userId(), cu.companyId(), "user.create", "user", created.userId(), "email=" + created.email());
-        return ResponseEntity.created(URI.create("/api/users/" + created.userId())).body(created);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.create", "user",
+                created.getUserId(), "email=" + created.getEmail()));
+        return ResponseEntity.created(URI.create("/api/users/" + created.getUserId())).body(created);
     }
 
     @GetMapping("/api/users/{id}")
@@ -99,11 +99,11 @@ public class UserController {
     public ResponseEntity<Void> deactivate(@PathVariable int id, HttpServletRequest request) {
         CurrentUser cu = AuthInterceptor.current(request);
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
-        if (u.companyId() != cu.companyId()) {
+        if (u.getCompanyId() != cu.companyId()) {
             throw new BadRequestException("cannot manage users from another company");
         }
         users.setActive(id, false);
-        audit.log(cu.userId(), cu.companyId(), "user.deactivate", "user", id, null);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.deactivate", "user", id, null));
         return ResponseEntity.noContent().build();
     }
 
@@ -111,11 +111,11 @@ public class UserController {
     public ResponseEntity<Void> activate(@PathVariable int id, HttpServletRequest request) {
         CurrentUser cu = AuthInterceptor.current(request);
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
-        if (u.companyId() != cu.companyId()) {
+        if (u.getCompanyId() != cu.companyId()) {
             throw new BadRequestException("cannot manage users from another company");
         }
         users.setActive(id, true);
-        audit.log(cu.userId(), cu.companyId(), "user.activate", "user", id, null);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.activate", "user", id, null));
         return ResponseEntity.noContent().build();
     }
 
@@ -124,14 +124,14 @@ public class UserController {
                                               HttpServletRequest request) {
         CurrentUser cu = AuthInterceptor.current(request);
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
-        if (u.companyId() != cu.companyId()) {
+        if (u.getCompanyId() != cu.companyId()) {
             throw new BadRequestException("cannot manage users from another company");
         }
         if (req.newPassword() == null || req.newPassword().isBlank()) {
             throw new BadRequestException("newPassword is required");
         }
         users.updatePassword(id, passwordEncoder.encode(req.newPassword()));
-        audit.log(cu.userId(), cu.companyId(), "user.password.reset", "user", id, null);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.password.reset", "user", id, null));
         return ResponseEntity.noContent().build();
     }
 

@@ -1,7 +1,22 @@
 package com.sefinal.erp.admin.model;
 
-public record Module(
-        Integer moduleId,
-        String moduleName,
-        boolean isActive
-) {}
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Table(name = "modules")
+@Getter @Setter @NoArgsConstructor
+public class Module {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "module_id")
+    private Integer moduleId;
+
+    @Column(name = "module_name", nullable = false, unique = true)
+    private String moduleName;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive;
+}
