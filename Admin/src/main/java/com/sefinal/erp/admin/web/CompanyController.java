@@ -2,9 +2,10 @@ package com.sefinal.erp.admin.web;
 
 import com.sefinal.erp.admin.auth.AuthInterceptor;
 import com.sefinal.erp.admin.auth.CurrentUser;
-import com.sefinal.erp.admin.dao.AuditDao;
-import com.sefinal.erp.admin.dao.CompanyDao;
+import com.sefinal.erp.admin.model.AuditLog;
 import com.sefinal.erp.admin.model.Company;
+import com.sefinal.erp.admin.repository.AuditLogRepository;
+import com.sefinal.erp.admin.repository.CompanyRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.CreateCompanyRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -24,18 +25,16 @@ import java.util.List;
 @RequestMapping("/api/companies")
 public class CompanyController {
 
-    private final CompanyDao companies;
-    private final AuditDao audit;
+    private final CompanyRepository companies;
+    private final AuditLogRepository auditRepo;
 
-    public CompanyController(CompanyDao companies, AuditDao audit) {
+    public CompanyController(CompanyRepository companies, AuditLogRepository auditRepo) {
         this.companies = companies;
-        this.audit = audit;
+        this.auditRepo = auditRepo;
     }
 
     @GetMapping
-    public List<Company> list() {
-        return companies.findAll();
-    }
+    public List<Company> list() { return companies.findAll(); }
 
     @GetMapping("/{id}")
     public Company get(@PathVariable int id) {
@@ -48,37 +47,36 @@ public class CompanyController {
         if (req.companyName() == null || req.companyName().isBlank()) {
             throw new BadRequestException("companyName is required");
         }
-        Company created = companies.create(new Company(
-                null,
-                req.companyName(),
-                req.currency() != null ? req.currency() : "USD",
-                req.taxDefault() != null ? req.taxDefault() : BigDecimal.ZERO,
-                req.locale() != null ? req.locale() : "en-US",
-                req.isActive() == null || req.isActive(),
-                null
-        ));
+        Company c = new Company();
+        c.setCompanyName(req.companyName());
+        c.setCurrency(req.currency() != null ? req.currency() : "USD");
+        c.setTaxDefault(req.taxDefault() != null ? req.taxDefault() : BigDecimal.ZERO);
+        c.setLocale(req.locale() != null ? req.locale() : "en-US");
+        c.setActive(req.isActive() == null || req.isActive());
+        Company created = companies.save(c);
+
         CurrentUser cu = AuthInterceptor.current(request);
-        audit.log(cu.userId(), cu.companyId(), "company.create", "company", created.companyId(), null);
-        return ResponseEntity.created(URI.create("/api/companies/" + created.companyId())).body(created);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "company.create", "company",
+                created.getCompanyId(), null));
+        return ResponseEntity.created(URI.create("/api/companies/" + created.getCompanyId())).body(created);
     }
 
     @PutMapping("/{id}")
     public Company update(@PathVariable int id, @RequestBody CreateCompanyRequest req, HttpServletRequest request) {
-        companies.findById(id).orElseThrow(() -> new NotFoundException("company " + id + " not found"));
+        Company c = companies.findById(id)
+                .orElseThrow(() -> new NotFoundException("company " + id + " not found"));
         if (req.companyName() == null || req.companyName().isBlank()) {
             throw new BadRequestException("companyName is required");
         }
-        Company updated = companies.update(new Company(
-                id,
-                req.companyName(),
-                req.currency() != null ? req.currency() : "USD",
-                req.taxDefault() != null ? req.taxDefault() : BigDecimal.ZERO,
-                req.locale() != null ? req.locale() : "en-US",
-                req.isActive() == null || req.isActive(),
-                null
-        ));
+        c.setCompanyName(req.companyName());
+        c.setCurrency(req.currency() != null ? req.currency() : "USD");
+        c.setTaxDefault(req.taxDefault() != null ? req.taxDefault() : BigDecimal.ZERO);
+        c.setLocale(req.locale() != null ? req.locale() : "en-US");
+        c.setActive(req.isActive() == null || req.isActive());
+        Company updated = companies.save(c);
+
         CurrentUser cu = AuthInterceptor.current(request);
-        audit.log(cu.userId(), cu.companyId(), "company.update", "company", id, null);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "company.update", "company", id, null));
         return updated;
     }
 }

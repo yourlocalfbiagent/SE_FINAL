@@ -1,0 +1,20 @@
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Build output
+target/
+*.class
+
+# Secrets
+.env
+.env.*
+
+# OS
+Thumbs.db
+.DS_Store

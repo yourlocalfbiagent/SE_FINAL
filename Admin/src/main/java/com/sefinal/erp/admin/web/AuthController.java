@@ -3,9 +3,10 @@ package com.sefinal.erp.admin.web;
 import com.sefinal.erp.admin.auth.AuthInterceptor;
 import com.sefinal.erp.admin.auth.CurrentUser;
 import com.sefinal.erp.admin.auth.SessionStore;
-import com.sefinal.erp.admin.dao.AuditDao;
-import com.sefinal.erp.admin.dao.UserDao;
+import com.sefinal.erp.admin.model.AuditLog;
 import com.sefinal.erp.admin.model.User;
+import com.sefinal.erp.admin.repository.AuditLogRepository;
+import com.sefinal.erp.admin.repository.UserRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.LoginRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,22 +26,23 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final UserDao users;
-    private final AuditDao audit;
+    private final UserRepository userRepo;
+    private final AuditLogRepository auditRepo;
     private final SessionStore sessions;
     private final PasswordEncoder passwordEncoder;
     private final int maxAttempts;
     private final long lockMinutes;
 
-    public AuthController(UserDao users, AuditDao audit, SessionStore sessions, PasswordEncoder passwordEncoder,
+    public AuthController(UserRepository userRepo, AuditLogRepository auditRepo, SessionStore sessions,
+                          PasswordEncoder passwordEncoder,
                           @Value("${app.lockout.max-attempts:5}") int maxAttempts,
                           @Value("${app.lockout.duration-minutes:15}") long lockMinutes) {
-        this.users = users;
-        this.audit = audit;
-        this.sessions = sessions;
+        this.userRepo        = userRepo;
+        this.auditRepo       = auditRepo;
+        this.sessions        = sessions;
         this.passwordEncoder = passwordEncoder;
-        this.maxAttempts = maxAttempts;
-        this.lockMinutes = lockMinutes;
+        this.maxAttempts     = maxAttempts;
+        this.lockMinutes     = lockMinutes;
     }
 
     @PostMapping("/login")
@@ -49,32 +51,34 @@ public class AuthController {
             throw new BadRequestException("email and password are required");
         }
 
-        // Look up user; return generic 401 to avoid email enumeration.
-        var maybeUser = users.findByEmail(req.email());
+        var maybeUser = userRepo.findByEmail(req.email());
         if (maybeUser.isEmpty() || !maybeUser.get().isActive()) {
             return unauthorized("invalid credentials");
         }
         User u = maybeUser.get();
 
-        // NFR-10: account-lock check must come before password check.
-        if (u.lockedUntil() != null && u.lockedUntil().isAfter(LocalDateTime.now())) {
-            return unauthorized("account is locked until " + u.lockedUntil());
+        if (u.getLockedUntil() != null && u.getLockedUntil().isAfter(LocalDateTime.now())) {
+            return unauthorized("account is locked until " + u.getLockedUntil());
         }
 
-        if (!passwordEncoder.matches(req.password(), u.passwordHash())) {
-            int attempts = users.recordFailedLogin(u.userId());
+        if (!passwordEncoder.matches(req.password(), u.getPasswordHash())) {
+            userRepo.incrementFailedAttempts(u.getUserId());
+            int attempts = userRepo.findById(u.getUserId())
+                    .map(User::getFailedLoginAttempts).orElse(maxAttempts);
             if (attempts >= maxAttempts) {
                 LocalDateTime until = LocalDateTime.now().plusMinutes(lockMinutes);
-                users.lockUntil(u.userId(), until);
-                audit.log(u.userId(), u.companyId(), "user.locked", "user", u.userId(),
-                        "auto-locked after " + attempts + " failed attempts; until=" + until);
+                userRepo.lockUntil(u.getUserId(), until);
+                auditRepo.save(new AuditLog(u.getUserId(), u.getCompanyId(), "user.locked",
+                        "user", u.getUserId(),
+                        "auto-locked after " + attempts + " failed attempts; until=" + until));
             }
             return unauthorized("invalid credentials");
         }
 
-        users.clearLoginCounters(u.userId());
-        String sessionId = sessions.create(new CurrentUser(u.userId(), u.companyId(), u.email(), u.roleId()));
-        audit.log(u.userId(), u.companyId(), "user.login", "user", u.userId(), null);
+        userRepo.clearLoginCounters(u.getUserId());
+        String sessionId = sessions.create(new CurrentUser(
+                u.getUserId(), u.getCompanyId(), u.getEmail(), u.getRoleId()));
+        auditRepo.save(new AuditLog(u.getUserId(), u.getCompanyId(), "user.login", "user", u.getUserId(), null));
 
         ResponseCookie cookie = ResponseCookie.from(AuthInterceptor.SESSION_COOKIE, sessionId)
                 .httpOnly(true)
@@ -123,10 +127,10 @@ public class AuthController {
 
     private static Map<String, Object> meBody(User u) {
         return Map.of(
-                "userId", u.userId(),
-                "companyId", u.companyId(),
-                "email", u.email(),
-                "roleId", u.roleId() == null ? "" : u.roleId()
+                "userId", u.getUserId(),
+                "companyId", u.getCompanyId(),
+                "email", u.getEmail(),
+                "roleId", u.getRoleId() == null ? "" : u.getRoleId()
         );
     }
 }
