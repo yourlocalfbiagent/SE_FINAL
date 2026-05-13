@@ -1,12 +1,64 @@
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
+
+# Build output
+target/
+*.class
+!**/src/main/**/target/
+!**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
 # IDE / editor
 .idea/
 .vscode/
 *.iml
+*.iws
+*.ipr
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Mermaid and References ###
+*.mermaid
+References/
+references/
+
+# Secrets
+.env
+.env.*
 
 # Claude Code
 .claude/
 CLAUDE.md
 
+# AI files
+GEMINI.md
+
+# Auto-generated GitHub tooling
+.github/
+
+# Markdown Files
+plan.md
+JIRA_BACKLOG.md
 # Build output
 target/
 *.class
