@@ -59,3 +59,14 @@ GEMINI.md
 # Markdown Files
 plan.md
 JIRA_BACKLOG.md
+# Build output
+target/
+*.class
+
+# Secrets
+.env
+.env.*
+
+# OS
+Thumbs.db
+.DS_Store

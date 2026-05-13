@@ -67,6 +67,7 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
+
         <!-- Lombok (optional but useful) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
