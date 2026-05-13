@@ -37,14 +37,21 @@ build/
 Thumbs.db
 .DS_Store
 
-# Mermaid and References ###
+# Mermaid and References
 *.mermaid
 References/
 references/
 
-# Secrets
+# Secrets / credentials
 .env
 .env.*
+!.env.example
+
+# Spring config with credentials
+src/main/resources/application.yaml
+src/main/resources/application-*.yaml
+src/main/resources/application.properties
+src/main/resources/application-*.properties
 
 # Claude Code
 .claude/
@@ -56,17 +63,6 @@ GEMINI.md
 # Auto-generated GitHub tooling
 .github/
 
-# Markdown Files
+# Markdown planning files
 plan.md
 JIRA_BACKLOG.md
-# Build output
-target/
-*.class
-
-# Secrets
-.env
-.env.*
-
-# OS
-Thumbs.db
-.DS_Store
