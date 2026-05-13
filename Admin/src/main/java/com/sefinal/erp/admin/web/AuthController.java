@@ -9,6 +9,8 @@ import com.sefinal.erp.admin.repository.AuditLogRepository;
 import com.sefinal.erp.admin.repository.UserRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.LoginRequest;
 import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Auth", description = "Login, logout, and session validation")
 public class AuthController {
 
     private final UserRepository userRepo;
@@ -46,6 +49,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Login with email and password — returns ADMIN_SESSION cookie")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {
         if (req == null || req.email() == null || req.password() == null) {
             throw new BadRequestException("email and password are required");
@@ -91,6 +95,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @Operation(summary = "Invalidate current session")
     public ResponseEntity<Void> logout(HttpServletRequest request) {
         String cookie = readCookie(request);
         if (cookie != null) sessions.invalidate(cookie);
@@ -100,6 +105,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @Operation(summary = "Get current authenticated user from session cookie")
     public ResponseEntity<?> me(HttpServletRequest request) {
         String cookie = readCookie(request);
         var current = cookie == null ? java.util.Optional.<CurrentUser>empty() : sessions.touch(cookie);

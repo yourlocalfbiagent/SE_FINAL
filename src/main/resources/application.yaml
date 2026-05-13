@@ -29,6 +29,10 @@ management:
       probes:
         enabled: true
 
+app:
+  admin:
+    base-url: ${ADMIN_BASE_URL:http://localhost:8081}
+
 springdoc:
   api-docs:
     path: /api-docs

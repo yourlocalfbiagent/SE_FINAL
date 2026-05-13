@@ -11,6 +11,8 @@ import com.sefinal.erp.admin.repository.RoleRepository;
 import com.sefinal.erp.admin.repository.UserRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.CreateUserRequest;
 import com.sefinal.erp.admin.web.dto.Dtos.UpdatePasswordRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +27,7 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
+@Tag(name = "Users", description = "User management within a company")
 public class UserController {
 
     private final UserRepository users;
@@ -43,12 +46,14 @@ public class UserController {
     }
 
     @GetMapping("/api/companies/{companyId}/users")
+    @Operation(summary = "List users for a company")
     public List<User> listForCompany(@PathVariable int companyId) {
         ensureCompany(companyId);
         return users.findByCompanyIdOrderByUserId(companyId);
     }
 
     @PostMapping("/api/companies/{companyId}/users")
+    @Operation(summary = "Create a user in a company")
     public ResponseEntity<User> create(@PathVariable int companyId, @RequestBody CreateUserRequest req,
                                        HttpServletRequest request) {
         ensureCompany(companyId);
@@ -84,18 +89,21 @@ public class UserController {
     }
 
     @GetMapping("/api/users/{id}")
+    @Operation(summary = "Get user by ID")
     public User get(@PathVariable int id) {
         return users.findById(id)
                 .orElseThrow(() -> new NotFoundException("user " + id + " not found"));
     }
 
     @GetMapping("/api/users")
+    @Operation(summary = "Get user by email")
     public User getByEmail(@RequestParam String email) {
         return users.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("user with email " + email + " not found"));
     }
 
     @PostMapping("/api/users/{id}/deactivate")
+    @Operation(summary = "Deactivate a user")
     public ResponseEntity<Void> deactivate(@PathVariable int id, HttpServletRequest request) {
         CurrentUser cu = AuthInterceptor.current(request);
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
@@ -108,6 +116,7 @@ public class UserController {
     }
 
     @PostMapping("/api/users/{id}/activate")
+    @Operation(summary = "Activate a user")
     public ResponseEntity<Void> activate(@PathVariable int id, HttpServletRequest request) {
         CurrentUser cu = AuthInterceptor.current(request);
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
@@ -120,6 +129,7 @@ public class UserController {
     }
 
     @PostMapping("/api/users/{id}/reset-password")
+    @Operation(summary = "Reset a user's password")
     public ResponseEntity<Void> resetPassword(@PathVariable int id, @RequestBody UpdatePasswordRequest req,
                                               HttpServletRequest request) {
         CurrentUser cu = AuthInterceptor.current(request);
