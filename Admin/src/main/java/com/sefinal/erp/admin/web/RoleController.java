@@ -9,6 +9,8 @@ import com.sefinal.erp.admin.repository.AuditLogRepository;
 import com.sefinal.erp.admin.repository.CompanyRepository;
 import com.sefinal.erp.admin.repository.RoleRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.CreateRoleRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +24,7 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
+@Tag(name = "Roles", description = "Role and permission management")
 public class RoleController {
 
     private final RoleRepository roles;
@@ -35,12 +38,14 @@ public class RoleController {
     }
 
     @GetMapping("/api/companies/{companyId}/roles")
+    @Operation(summary = "List roles for a company")
     public List<Role> listForCompany(@PathVariable int companyId) {
         ensureCompany(companyId);
         return roles.findByCompanyIdOrderByRoleId(companyId);
     }
 
     @PostMapping("/api/companies/{companyId}/roles")
+    @Operation(summary = "Create a role in a company")
     public ResponseEntity<Role> create(@PathVariable int companyId, @RequestBody CreateRoleRequest req,
                                        HttpServletRequest request) {
         ensureCompany(companyId);
@@ -60,18 +65,21 @@ public class RoleController {
     }
 
     @GetMapping("/api/roles/{roleId}")
+    @Operation(summary = "Get role by ID")
     public Role get(@PathVariable int roleId) {
         return roles.findById(roleId)
                 .orElseThrow(() -> new NotFoundException("role " + roleId + " not found"));
     }
 
     @GetMapping("/api/roles/{roleId}/permissions")
+    @Operation(summary = "List permissions for a role")
     public List<Permission> permissionsForRole(@PathVariable int roleId) {
         get(roleId);
         return roles.permissionsForRole(roleId);
     }
 
     @PostMapping("/api/roles/{roleId}/permissions/{permissionId}")
+    @Operation(summary = "Grant a permission to a role")
     public ResponseEntity<Void> grant(@PathVariable int roleId, @PathVariable int permissionId,
                                       HttpServletRequest request) {
         get(roleId);
@@ -83,6 +91,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/api/roles/{roleId}/permissions/{permissionId}")
+    @Operation(summary = "Revoke a permission from a role")
     public ResponseEntity<Void> revoke(@PathVariable int roleId, @PathVariable int permissionId,
                                        HttpServletRequest request) {
         get(roleId);

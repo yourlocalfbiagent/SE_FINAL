@@ -1,8 +1,18 @@
 HELP.md
-target/
 .mvn/wrapper/maven-wrapper.jar
+target/
+*.class
 !**/src/main/**/target/
 !**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
 
 ### STS ###
 .apt_generated
@@ -13,22 +23,27 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea/
-target/
-*.iws
-*.iml
-*.ipr
-
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+
+# Spring config with credentials
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+src/main/resources/application.yaml
+src/main/resources/application-*.yaml

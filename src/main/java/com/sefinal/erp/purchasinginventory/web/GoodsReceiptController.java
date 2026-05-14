@@ -11,9 +11,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sefinal.erp.purchasinginventory.dao.GoodsReceiptDao;
 import com.sefinal.erp.purchasinginventory.model.GoodsReceipt;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/goods-receipts")
+@Tag(name = "Goods Receipts", description = "Record and retrieve goods receipts")
 public class GoodsReceiptController {
 
     private final GoodsReceiptDao goodsReceiptDao;
@@ -23,11 +26,14 @@ public class GoodsReceiptController {
     }
 
     @GetMapping
+    @Operation(summary = "List all goods receipts")
     public List<GoodsReceipt> getAllGoodsReceipts() {
         return goodsReceiptDao.findAll();
     }
+
     @PostMapping
-public GoodsReceipt createGoodsReceipt(@RequestBody GoodsReceipt goodsReceipt) {
-    return goodsReceiptDao.save(goodsReceipt);
-}
+    @Operation(summary = "Record a new goods receipt")
+    public GoodsReceipt createGoodsReceipt(@RequestBody GoodsReceipt goodsReceipt) {
+        return goodsReceiptDao.save(goodsReceipt);
+    }
 }

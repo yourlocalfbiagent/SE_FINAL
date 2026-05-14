@@ -15,6 +15,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/audit-log")
+@Tag(name = "Audit Log", description = "Query and export audit trail")
 public class AuditController {
 
     private final AuditLogRepository auditRepo;
@@ -41,6 +44,7 @@ public class AuditController {
     }
 
     @GetMapping
+    @Operation(summary = "Query audit log with optional filters")
     public List<AuditEntry> query(
             HttpServletRequest request,
             @RequestParam(defaultValue = "200") int limit,
@@ -54,6 +58,7 @@ public class AuditController {
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
+    @Operation(summary = "Export audit log as CSV")
     public ResponseEntity<byte[]> exportCsv(
             HttpServletRequest request,
             @RequestParam(defaultValue = "500") int limit,

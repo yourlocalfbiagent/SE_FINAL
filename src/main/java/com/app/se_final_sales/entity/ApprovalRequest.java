@@ -1,5 +1,6 @@
 package com.app.se_final_sales.entity;
 
+import com.sefinal.erp.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;

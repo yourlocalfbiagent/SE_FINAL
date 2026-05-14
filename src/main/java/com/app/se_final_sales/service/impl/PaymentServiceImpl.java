@@ -4,7 +4,7 @@ import com.app.se_final_sales.dto.PaymentRequest;
 import com.app.se_final_sales.dto.PaymentResponse;
 import com.app.se_final_sales.entity.Payment;
 import com.app.se_final_sales.entity.SalesInvoice;
-import com.app.se_final_sales.exception.ResourceNotFoundException;
+import com.sefinal.erp.exception.ResourceNotFoundException;
 import com.app.se_final_sales.mapper.PaymentMapper;
 import com.app.se_final_sales.repository.PaymentRepository;
 import com.app.se_final_sales.repository.SalesInvoiceRepository;

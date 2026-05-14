@@ -7,6 +7,8 @@ import com.sefinal.erp.admin.model.Company;
 import com.sefinal.erp.admin.repository.AuditLogRepository;
 import com.sefinal.erp.admin.repository.CompanyRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.CreateCompanyRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +25,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/companies")
+@Tag(name = "Companies", description = "Company management")
 public class CompanyController {
 
     private final CompanyRepository companies;
@@ -34,15 +37,18 @@ public class CompanyController {
     }
 
     @GetMapping
+    @Operation(summary = "List all companies")
     public List<Company> list() { return companies.findAll(); }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get company by ID")
     public Company get(@PathVariable int id) {
         return companies.findById(id)
                 .orElseThrow(() -> new NotFoundException("company " + id + " not found"));
     }
 
     @PostMapping
+    @Operation(summary = "Create a new company")
     public ResponseEntity<Company> create(@RequestBody CreateCompanyRequest req, HttpServletRequest request) {
         if (req.companyName() == null || req.companyName().isBlank()) {
             throw new BadRequestException("companyName is required");
@@ -62,6 +68,7 @@ public class CompanyController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update a company")
     public Company update(@PathVariable int id, @RequestBody CreateCompanyRequest req, HttpServletRequest request) {
         Company c = companies.findById(id)
                 .orElseThrow(() -> new NotFoundException("company " + id + " not found"));

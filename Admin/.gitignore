@@ -3,9 +3,22 @@ target/
 *.iml
 .vscode/
 *.class
-.env
-.env.*
-.claude/
-CLAUDE.md
+
+# OS
 Thumbs.db
 .DS_Store
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+
+# Spring config with credentials
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+src/main/resources/application.yaml
+src/main/resources/application-*.yaml
+
+# Claude Code
+.claude/
+CLAUDE.md

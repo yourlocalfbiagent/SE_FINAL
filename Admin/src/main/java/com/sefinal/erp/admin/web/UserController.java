@@ -1,6 +1,5 @@
 package com.sefinal.erp.admin.web;
 
-import com.sefinal.erp.admin.auth.AuthInterceptor;
 import com.sefinal.erp.admin.auth.CurrentUser;
 import com.sefinal.erp.admin.model.AuditLog;
 import com.sefinal.erp.admin.model.Role;
@@ -11,20 +10,18 @@ import com.sefinal.erp.admin.repository.RoleRepository;
 import com.sefinal.erp.admin.repository.UserRepository;
 import com.sefinal.erp.admin.web.dto.Dtos.CreateUserRequest;
 import com.sefinal.erp.admin.web.dto.Dtos.UpdatePasswordRequest;
-import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
 
 @RestController
+@Tag(name = "Users", description = "User management within a company")
 public class UserController {
 
     private final UserRepository users;
@@ -43,14 +40,15 @@ public class UserController {
     }
 
     @GetMapping("/api/companies/{companyId}/users")
+    @Operation(summary = "List users for a company")
     public List<User> listForCompany(@PathVariable int companyId) {
         ensureCompany(companyId);
         return users.findByCompanyIdOrderByUserId(companyId);
     }
 
     @PostMapping("/api/companies/{companyId}/users")
-    public ResponseEntity<User> create(@PathVariable int companyId, @RequestBody CreateUserRequest req,
-                                       HttpServletRequest request) {
+    @Operation(summary = "Create a user in a company")
+    public ResponseEntity<User> create(@PathVariable int companyId, @RequestBody CreateUserRequest req) {
         ensureCompany(companyId);
         require("firstName", req.firstName());
         require("lastName",  req.lastName());
@@ -77,27 +75,30 @@ public class UserController {
         u.setFailedLoginAttempts(0);
         User created = users.save(u);
 
-        CurrentUser cu = AuthInterceptor.current(request);
+        CurrentUser cu = currentUser();
         auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.create", "user",
                 created.getUserId(), "email=" + created.getEmail()));
         return ResponseEntity.created(URI.create("/api/users/" + created.getUserId())).body(created);
     }
 
     @GetMapping("/api/users/{id}")
+    @Operation(summary = "Get user by ID")
     public User get(@PathVariable int id) {
         return users.findById(id)
                 .orElseThrow(() -> new NotFoundException("user " + id + " not found"));
     }
 
     @GetMapping("/api/users")
+    @Operation(summary = "Get user by email")
     public User getByEmail(@RequestParam String email) {
         return users.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("user with email " + email + " not found"));
     }
 
     @PostMapping("/api/users/{id}/deactivate")
-    public ResponseEntity<Void> deactivate(@PathVariable int id, HttpServletRequest request) {
-        CurrentUser cu = AuthInterceptor.current(request);
+    @Operation(summary = "Deactivate a user")
+    public ResponseEntity<Void> deactivate(@PathVariable int id) {
+        CurrentUser cu = currentUser();
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
         if (u.getCompanyId() != cu.companyId()) {
             throw new BadRequestException("cannot manage users from another company");
@@ -108,8 +109,9 @@ public class UserController {
     }
 
     @PostMapping("/api/users/{id}/activate")
-    public ResponseEntity<Void> activate(@PathVariable int id, HttpServletRequest request) {
-        CurrentUser cu = AuthInterceptor.current(request);
+    @Operation(summary = "Activate a user")
+    public ResponseEntity<Void> activate(@PathVariable int id) {
+        CurrentUser cu = currentUser();
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
         if (u.getCompanyId() != cu.companyId()) {
             throw new BadRequestException("cannot manage users from another company");
@@ -120,9 +122,9 @@ public class UserController {
     }
 
     @PostMapping("/api/users/{id}/reset-password")
-    public ResponseEntity<Void> resetPassword(@PathVariable int id, @RequestBody UpdatePasswordRequest req,
-                                              HttpServletRequest request) {
-        CurrentUser cu = AuthInterceptor.current(request);
+    @Operation(summary = "Reset a user's password")
+    public ResponseEntity<Void> resetPassword(@PathVariable int id, @RequestBody UpdatePasswordRequest req) {
+        CurrentUser cu = currentUser();
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
         if (u.getCompanyId() != cu.companyId()) {
             throw new BadRequestException("cannot manage users from another company");
@@ -133,6 +135,14 @@ public class UserController {
         users.updatePassword(id, passwordEncoder.encode(req.newPassword()));
         auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.password.reset", "user", id, null));
         return ResponseEntity.noContent().build();
+    }
+
+    private static CurrentUser currentUser() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof CurrentUser cu)) {
+            throw new BadRequestException("no authenticated user on request");
+        }
+        return cu;
     }
 
     private void ensureCompany(int companyId) {
