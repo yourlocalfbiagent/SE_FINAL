@@ -13,6 +13,7 @@ import com.sefinal.erp.admin.web.dto.Dtos.UpdatePasswordRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +42,7 @@ public class UserController {
 
     @GetMapping("/api/companies/{companyId}/users")
     @Operation(summary = "List users for a company")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.read')")
     public List<User> listForCompany(@PathVariable int companyId) {
         ensureCompany(companyId);
         return users.findByCompanyIdOrderByUserId(companyId);
@@ -48,6 +50,7 @@ public class UserController {
 
     @PostMapping("/api/companies/{companyId}/users")
     @Operation(summary = "Create a user in a company")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.create')")
     public ResponseEntity<User> create(@PathVariable int companyId, @RequestBody CreateUserRequest req) {
         ensureCompany(companyId);
         require("firstName", req.firstName());
@@ -83,13 +86,51 @@ public class UserController {
 
     @GetMapping("/api/users/{id}")
     @Operation(summary = "Get user by ID")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.read')")
     public User get(@PathVariable int id) {
         return users.findById(id)
                 .orElseThrow(() -> new NotFoundException("user " + id + " not found"));
     }
 
+    @PutMapping("/api/users/{id}")
+    @Operation(summary = "Update a user")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.update')")
+    public User update(@PathVariable int id, @RequestBody com.sefinal.erp.admin.web.dto.Dtos.UpdateUserRequest req) {
+        CurrentUser cu = currentUser();
+        User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
+        if (u.getCompanyId() != cu.companyId()) {
+            throw new BadRequestException("cannot manage users from another company");
+        }
+        
+        u.setFirstName(req.firstName());
+        u.setLastName(req.lastName());
+        u.setEmail(req.email());
+        u.setRoleId(req.roleId());
+        if (req.isActive() != null) u.setActive(req.isActive());
+        if (req.mfaEnabled() != null) u.setMfaEnabled(req.mfaEnabled());
+        
+        User updated = users.save(u);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.update", "user", id, null));
+        return updated;
+    }
+
+    @DeleteMapping("/api/users/{id}")
+    @Operation(summary = "Delete a user")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.delete')")
+    public ResponseEntity<Void> delete(@PathVariable int id) {
+        CurrentUser cu = currentUser();
+        User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
+        if (u.getCompanyId() != cu.companyId()) {
+            throw new BadRequestException("cannot delete users from another company");
+        }
+        users.deleteById(id);
+        auditRepo.save(new AuditLog(cu.userId(), cu.companyId(), "user.delete", "user", id, null));
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/api/users")
     @Operation(summary = "Get user by email")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.read')")
     public User getByEmail(@RequestParam String email) {
         return users.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("user with email " + email + " not found"));
@@ -97,6 +138,7 @@ public class UserController {
 
     @PostMapping("/api/users/{id}/deactivate")
     @Operation(summary = "Deactivate a user")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.update')")
     public ResponseEntity<Void> deactivate(@PathVariable int id) {
         CurrentUser cu = currentUser();
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
@@ -110,6 +152,7 @@ public class UserController {
 
     @PostMapping("/api/users/{id}/activate")
     @Operation(summary = "Activate a user")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.update')")
     public ResponseEntity<Void> activate(@PathVariable int id) {
         CurrentUser cu = currentUser();
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));
@@ -123,6 +166,7 @@ public class UserController {
 
     @PostMapping("/api/users/{id}/reset-password")
     @Operation(summary = "Reset a user's password")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.update')")
     public ResponseEntity<Void> resetPassword(@PathVariable int id, @RequestBody UpdatePasswordRequest req) {
         CurrentUser cu = currentUser();
         User u = users.findById(id).orElseThrow(() -> new NotFoundException("user " + id + " not found"));

@@ -38,10 +38,17 @@ function SalesOrdersPage() {
   const [sel, setSel]         = useState(null);
   const [modal, setModal]     = useState(false);
   const [actionErr, setActionErr] = useState('');
-  const { data: ordersRaw, loading, error, reload } = useLoad(() => erpApi('/api/sales-orders'));
-  const orders = ordersRaw || [];
+  const [newItem, setNewItem] = useState({ partnerId: '', lines: [] });
 
-  const confirm = async () => {
+  const { data: ordersRaw, loading, error, reload } = useLoad(() => erpApi('/api/sales-orders'));
+  const { data: partnersRaw } = useLoad(() => erpApi('/api/business-partners'));
+  const { data: productsRaw } = useLoad(() => erpApi('/api/products'));
+
+  const orders = ordersRaw || [];
+  const partners = (partnersRaw || []).filter(p => p.type === 'CUSTOMER' || p.type === 'BOTH');
+  const products = productsRaw || [];
+
+  const confirmOrder = async () => {
     if (!sel) return;
     setActionErr('');
     try {
@@ -51,10 +58,82 @@ function SalesOrdersPage() {
     } catch(e) { setActionErr(e.message); }
   };
 
+  const doSave = async () => {
+    setActionErr('');
+    if (!newItem.partnerId) return setActionErr('Please select a customer');
+    if (!newItem.lines || newItem.lines.length === 0) return setActionErr('Please add at least one line item');
+    
+    try {
+      const body = {
+        partnerId:   Number(newItem.partnerId),
+        createdById: Number(getUserId()) || 1,
+        orderDate:   new Date().toISOString().slice(0, 10),
+        status:      'DRAFT',
+        lines:       newItem.lines.map(l => ({
+          productId: Number(l.productId),
+          quantity:  parseFloat(l.quantity),
+          unitPrice: parseFloat(l.unitPrice)
+        }))
+      };
+      if (newItem.id) {
+        await erpApi('/api/sales-orders/' + newItem.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/sales-orders', { method: 'POST', body: JSON.stringify(body) });
+      }
+      setModal(false);
+      reload();
+    } catch(e) { setActionErr(e.message); }
+  };
+
+  const deleteOrder = async () => {
+    if (!sel || !confirm('Are you sure you want to delete this order?')) return;
+    try {
+      await erpApi('/api/sales-orders/' + sel.salesOrderId, { method: 'DELETE' });
+      setSel(null);
+      reload();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openAdd = () => {
+    setNewItem({ partnerId: '', lines: [{ productId: '', quantity: 1, unitPrice: 0 }] });
+    setModal(true);
+  };
+
+  const openEdit = () => {
+    setNewItem({
+      id: sel.salesOrderId,
+      partnerId: String(sel.partnerId),
+      lines: sel.lines.map(l => ({
+        productId: String(l.productId),
+        quantity: l.quantity,
+        unitPrice: l.unitPrice
+      }))
+    });
+    setModal(true);
+  };
+
+  const addLine = () => {
+    setNewItem(p => ({ ...p, lines: [...p.lines, { productId: '', quantity: 1, unitPrice: 0 }] }));
+  };
+
+  const updateLine = (idx, k, v) => {
+    const lines = [...newItem.lines];
+    lines[idx][k] = v;
+    if (k === 'productId') {
+      const prod = products.find(p => String(p.productId) === v);
+      if (prod) lines[idx].unitPrice = prod.sellingPrice;
+    }
+    setNewItem(p => ({ ...p, lines }));
+  };
+
+  const removeLine = (idx) => {
+    setNewItem(p => ({ ...p, lines: p.lines.filter((_, i) => i !== idx) }));
+  };
+
   return (
     <div>
       <PageHeader title="Sales Orders" subtitle="Manage customer orders">
-        <button className="btn btn--primary" onClick={() => setModal(true)}>+ Create Order</button>
+        <button className="btn btn--primary" onClick={openAdd}>+ Create Order</button>
       </PageHeader>
       {error ? <PageError message={error} onRetry={reload}/> : loading ? <PageLoad/> : (
         <div className="page-split">
@@ -66,9 +145,13 @@ function SalesOrdersPage() {
             footer={
               <div className="dp__actions">
                 {actionErr && <div style={{ color: '#ef4444', fontSize: 12, width: '100%' }}>{actionErr}</div>}
-                <button className="btn btn--secondary" onClick={() => setSel(null)}>Close</button>
-                {sel && (sel.status||'').toUpperCase() === 'DRAFT' &&
-                  <button className="btn btn--primary" onClick={confirm}>Confirm Order</button>}
+                {sel && (sel.status||'').toUpperCase() === 'DRAFT' && (
+                  <>
+                    <button className="btn btn--secondary btn--sm" onClick={openEdit}>Edit</button>
+                    <button className="btn btn--danger btn--sm" onClick={deleteOrder}>Delete</button>
+                    <button className="btn btn--primary btn--sm" onClick={confirmOrder}>Confirm</button>
+                  </>
+                )}
               </div>
             }>
             {sel && <>
@@ -76,7 +159,15 @@ function SalesOrdersPage() {
               <DPRow label="Customer" value={sel.partnerName || '—'}/>
               <DPRow label="Status"   value={<Badge status={sel.status}/>}/>
               <DPRow label="Date"     value={fmtDate(sel.orderDate)}/>
-              <DPRow label="Lines"    value={sel.lines ? sel.lines.length + ' line items' : '—'}/>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Order Lines</div>
+                {(sel.lines || []).map((l, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <span>{l.productName} x {l.quantity}</span>
+                    <span>{fmt$(l.totalPrice)}</span>
+                  </div>
+                ))}
+              </div>
               <hr className="dp__divider"/>
               <DPRow label="Subtotal" value={fmt$(sel.subtotal)}/>
               <DPRow label="Tax"      value={fmt$(sel.taxAmount)}/>
@@ -85,12 +176,33 @@ function SalesOrdersPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Create Sales Order" width={600}
+      <Modal open={modal} onClose={() => setModal(false)} title={newItem.id ? 'Edit Sales Order' : 'Create Sales Order'} width={650}
         footer={<><button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={() => setModal(false)}>Close</button></>}>
-        <div style={{ color: '#64748b', fontSize: 14, padding: '12px 0' }}>
-          Sales order creation requires product and customer setup. Use the API directly or the Swagger UI at{' '}
-          <code>http://localhost:8080/swagger-ui.html</code>.
+          <button className="btn btn--primary" onClick={doSave}>{newItem.id ? 'Save Changes' : 'Create Order'}</button></>}>
+        {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
+        <FormSelect label="Customer" value={newItem.partnerId} onChange={v => setNewItem(p => ({...p, partnerId: v}))} required
+          options={partners.map(p => ({ value: String(p.partnerId), label: p.partnerName }))} placeholder="Select customer"/>
+        
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Order Lines</span>
+            <button className="btn btn--secondary btn--sm" onClick={addLine}>+ Add Line</button>
+          </div>
+          {newItem.lines.map((l, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 2 }}>
+                <FormSelect label={idx === 0 ? "Product" : ""} value={l.productId} onChange={v => updateLine(idx, 'productId', v)}
+                  options={products.map(p => ({ value: String(p.productId), label: p.productName }))}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Qty" : ""} type="number" value={l.quantity} onChange={v => updateLine(idx, 'quantity', v)}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Price" : ""} type="number" value={l.unitPrice} onChange={v => updateLine(idx, 'unitPrice', v)}/>
+              </div>
+              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px' }}>✕</button>
+            </div>
+          ))}
         </div>
       </Modal>
     </div>
@@ -112,11 +224,22 @@ function SalesInvoicesPage() {
 
   const confirmedOrders = (ordersRaw || []).filter(o => (o.status||'').toUpperCase() === 'CONFIRMED');
 
+  const generateInvoice = async (orderId) => {
+    setActionErr('');
+    try {
+      await erpApi('/api/sales-invoices/generate-from-order/' + orderId, { method: 'POST' });
+      setModal(false);
+      reload();
+    } catch(e) { setActionErr(e.message); }
+  };
+
   const reviewInvoice = async (decision) => {
     if (!sel) return;
     setActionErr('');
     try {
       const uid = Number(getUserId()) || 0;
+      // Note: Approval flow might need backend check if it exists. 
+      // Assuming /api/approvals is supported based on previous code.
       const approval = await erpApi('/api/approvals', {
         method: 'POST',
         body: JSON.stringify({ invoiceId: sel.invoiceId, requestedById: uid }),
@@ -132,13 +255,13 @@ function SalesInvoicesPage() {
     } catch(e) { setActionErr(e.message); }
   };
 
-  const generateInvoice = async (orderId) => {
-    setActionErr('');
+  const deleteInvoice = async () => {
+    if (!sel || !confirm('Are you sure you want to delete this invoice?')) return;
     try {
-      await erpApi('/api/sales-invoices/generate-from-order/' + orderId, { method: 'POST' });
-      setModal(false);
+      await erpApi('/api/sales-invoices/' + sel.invoiceId, { method: 'DELETE' });
+      setSel(null);
       reload();
-    } catch(e) { setActionErr(e.message); }
+    } catch(e) { alert(e.message); }
   };
 
   return (
@@ -156,9 +279,12 @@ function SalesInvoicesPage() {
             footer={
               <div className="dp__actions">
                 {actionErr && <div style={{ color: '#ef4444', fontSize: 12, width: '100%' }}>{actionErr}</div>}
+                {sel && (
+                  <button className="btn btn--danger btn--sm" onClick={deleteInvoice}>Delete</button>
+                )}
                 {sel && (sel.status||'').toUpperCase() === 'PENDING' && <>
-                  <button className="btn btn--success" onClick={() => reviewInvoice('APPROVED')}>Approve</button>
-                  <button className="btn btn--danger"  onClick={() => reviewInvoice('REJECTED')}>Reject</button>
+                  <button className="btn btn--success btn--sm" onClick={() => reviewInvoice('APPROVED')}>Approve</button>
+                  <button className="btn btn--danger btn--sm"  onClick={() => reviewInvoice('REJECTED')}>Reject</button>
                 </>}
               </div>
             }>
@@ -183,8 +309,11 @@ function SalesInvoicesPage() {
         {confirmedOrders.length === 0
           ? <div style={{ color: '#64748b', fontSize: 14 }}>No confirmed orders available.</div>
           : confirmedOrders.map(o => (
-            <div key={o.salesOrderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: 14 }}>{o.salesOrderNumber} — {o.partnerName} — {fmt$(o.totalAmount)}</span>
+            <div key={o.salesOrderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{o.salesOrderNumber}</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>{o.partnerName} — {fmt$(o.totalAmount)}</span>
+              </div>
               <button className="btn btn--primary btn--sm" onClick={() => generateInvoice(o.salesOrderId)}>Generate</button>
             </div>
           ))}
@@ -201,55 +330,72 @@ function PaymentsPage() {
   const [newPay, setNewPay] = useState({ invoiceId: '', amount: '', paymentMethod: 'Bank Transfer' });
 
   const { data: invoicesRaw, loading: invL, error: invE, reload: invR } = useLoad(() => erpApi('/api/sales-invoices'));
+  const { data: paymentsRaw, loading: payL, error: payE, reload: payR } = useLoad(() => erpApi('/api/payments'));
+  
   const invoices = invoicesRaw || [];
+  const payments = paymentsRaw || [];
 
-  // Load payments for all invoices
-  const [payments, setPayments] = useState([]);
-  const [payLoading, setPayLoading] = useState(true);
-
-  React.useEffect(() => {
-    if (invL || !invoicesRaw) return;
-    setPayLoading(true);
-    Promise.all(
-      invoices.map(inv => erpApi('/api/payments/invoice/' + inv.invoiceId).then(r => r || []).catch(() => []))
-    ).then(results => {
-      const flat = results.flat();
-      setPayments(flat);
-      setPayLoading(false);
-    });
-  }, [invoicesRaw]);
-
-  const recordPayment = async () => {
+  const doSave = async () => {
     setActionErr('');
     try {
-      await erpApi('/api/payments', {
-        method: 'POST',
-        body: JSON.stringify({
-          invoiceId:     Number(newPay.invoiceId),
-          amount:        parseFloat(newPay.amount),
-          paymentMethod: newPay.paymentMethod,
-          paymentDate:   new Date().toISOString().slice(0, 10),
-        }),
-      });
+      const body = {
+        invoiceId:     Number(newPay.invoiceId),
+        amount:        parseFloat(newPay.amount),
+        paymentMethod: newPay.paymentMethod,
+        paymentDate:   newPay.paymentDate || new Date().toISOString().slice(0, 10),
+      };
+      if (newPay.id) {
+        await erpApi('/api/payments/' + newPay.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/payments', { method: 'POST', body: JSON.stringify(body) });
+      }
       setModal(false);
       setNewPay({ invoiceId: '', amount: '', paymentMethod: 'Bank Transfer' });
+      payR();
       invR();
     } catch(e) { setActionErr(e.message); }
   };
 
-  const loading = invL || payLoading;
+  const deletePayment = async () => {
+    if (!sel || !confirm('Are you sure you want to delete this payment?')) return;
+    try {
+      await erpApi('/api/payments/' + sel.paymentId, { method: 'DELETE' });
+      setSel(null);
+      payR();
+      invR();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewPay({
+      id: sel.paymentId,
+      invoiceId: String(sel.invoiceId),
+      amount: String(sel.amount),
+      paymentMethod: sel.paymentMethod,
+      paymentDate: sel.paymentDate
+    });
+    setModal(true);
+  };
+
+  const loading = invL || payL;
 
   return (
     <div>
       <PageHeader title="Payments" subtitle="Track payments and reconciliation">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setModal(true); }}>+ Record Payment</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewPay({ invoiceId: '', amount: '', paymentMethod: 'Bank Transfer' }); setModal(true); }}>+ Record Payment</button>
       </PageHeader>
-      {invE ? <PageError message={invE} onRetry={invR}/> : loading ? <PageLoad/> : (
+      {invE || payE ? <PageError message={invE || payE} onRetry={() => { invR(); payR(); }}/> : loading ? <PageLoad/> : (
         <div className="page-split">
           <div className="page-split__main">
             <DataTable columns={PAY_COLS} data={payments} selectedId={sel?.paymentId} onRowClick={setSel} showCheck/>
           </div>
-          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Payment #' + (sel?.paymentId || '')}>
+          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Payment #' + (sel?.paymentId || '')}
+            footer={sel && (
+              <div className="dp__actions">
+                <button className="btn btn--secondary btn--sm" style={{ flex: 1 }} onClick={openEdit}>Edit</button>
+                <button className="btn btn--danger btn--sm" onClick={deletePayment}>Delete</button>
+              </div>
+            )}>
             {sel && <>
               <DPRow label="Payment ID"   value={sel.paymentId}/>
               <DPRow label="Invoice Ref"  value={sel.invoiceNumber}/>
@@ -261,18 +407,22 @@ function PaymentsPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Record Payment" width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newPay.id ? 'Edit Payment' : 'Record Payment'} width={500}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={recordPayment}>Record</button>
+          <button className="btn btn--primary" onClick={doSave}>{newPay.id ? 'Save Changes' : 'Record'}</button>
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Invoice" value={newPay.invoiceId}
           onChange={v => setNewPay(p => ({...p, invoiceId: v}))} required
           options={invoices.map(i => ({ value: String(i.invoiceId), label: i.invoiceNumber + ' — ' + fmt$(i.totalAmount) }))}
           placeholder="Select invoice"/>
-        <FormInput label="Amount" type="number" value={newPay.amount}
-          onChange={v => setNewPay(p => ({...p, amount: v}))} required placeholder="0.00"/>
+        <FormRow>
+          <FormInput label="Amount" type="number" value={newPay.amount}
+            onChange={v => setNewPay(p => ({...p, amount: v}))} required placeholder="0.00"/>
+          <FormInput label="Date" type="date" value={newPay.paymentDate || new Date().toISOString().slice(0, 10)}
+            onChange={v => setNewPay(p => ({...p, paymentDate: v}))} required/>
+        </FormRow>
         <FormSelect label="Payment Method" value={newPay.paymentMethod}
           onChange={v => setNewPay(p => ({...p, paymentMethod: v}))} required
           options={['Bank Transfer', 'Credit Card', 'Wire Transfer', 'Check', 'Cash']}/>
@@ -293,33 +443,59 @@ function SalesReturnsPage() {
   const returns  = returnsRaw  || [];
   const invoices = invoicesRaw || [];
 
-  const approveReturn = async () => {
-    if (!sel) return;
+  const doSave = async () => {
     setActionErr('');
     try {
-      await erpApi('/api/sales-returns/' + sel.returnId + '/approve', { method: 'PUT' });
-      setSel(null);
-      retR();
-    } catch(e) { setActionErr(e.message); }
-  };
-
-  const submitReturn = async () => {
-    setActionErr('');
-    try {
-      await erpApi('/api/sales-returns', {
-        method: 'POST',
-        body: JSON.stringify({ invoiceId: Number(newRet.invoiceId), reason: newRet.reason, lines: [] }),
-      });
+      const body = {
+        invoiceId:   Number(newRet.invoiceId),
+        reason:      newRet.reason,
+        returnDate:  newRet.returnDate || new Date().toISOString().slice(0, 10),
+        status:      newRet.status || 'PENDING'
+      };
+      if (newRet.id) {
+        await erpApi('/api/sales-returns/' + newRet.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/sales-returns', { method: 'POST', body: JSON.stringify(body) });
+      }
       setModal(false);
       setNewRet({ invoiceId: '', reason: '' });
       retR();
     } catch(e) { setActionErr(e.message); }
   };
 
+  const approveReturn = async () => {
+    if (!sel) return;
+    try {
+      await erpApi('/api/sales-returns/' + sel.returnId + '/approve', { method: 'PUT' });
+      setSel(null);
+      retR();
+    } catch(e) { alert(e.message); }
+  };
+
+  const deleteReturn = async () => {
+    if (!sel || !confirm('Are you sure you want to delete this return?')) return;
+    try {
+      await erpApi('/api/sales-returns/' + sel.returnId, { method: 'DELETE' });
+      setSel(null);
+      retR();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewRet({
+      id: sel.returnId,
+      invoiceId: String(sel.invoiceId),
+      reason: sel.reason,
+      returnDate: sel.returnDate,
+      status: sel.status
+    });
+    setModal(true);
+  };
+
   return (
     <div>
       <PageHeader title="Sales Returns" subtitle="Process returned merchandise">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setModal(true); }}>+ Process Return</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewRet({ invoiceId: '', reason: '' }); setModal(true); }}>+ Process Return</button>
       </PageHeader>
       {retE ? <PageError message={retE} onRetry={retR}/> : retL ? <PageLoad/> : (
         <div className="page-split">
@@ -328,12 +504,18 @@ function SalesReturnsPage() {
           </div>
           <DetailPanel open={!!sel} onClose={() => { setSel(null); setActionErr(''); }}
             title={'Return ' + (sel?.returnNumber || '')}
-            footer={sel && (sel.status||'').toUpperCase() === 'PENDING'
-              ? <div className="dp__actions">
-                  {actionErr && <div style={{ color: '#ef4444', fontSize: 12, width: '100%' }}>{actionErr}</div>}
-                  <button className="btn btn--success" onClick={approveReturn}>Approve Return</button>
+            footer={
+              <div className="dp__actions" style={{ flexDirection: 'column', gap: 8 }}>
+                {actionErr && <div style={{ color: '#ef4444', fontSize: 12, width: '100%' }}>{actionErr}</div>}
+                <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                  <button className="btn btn--secondary btn--sm" style={{ flex: 1 }} onClick={openEdit}>Edit</button>
+                  <button className="btn btn--danger btn--sm" onClick={deleteReturn}>Delete</button>
                 </div>
-              : null}>
+                {sel && (sel.status||'').toUpperCase() === 'PENDING' && (
+                  <button className="btn btn--success btn--sm" style={{ width: '100%' }} onClick={approveReturn}>Approve Return</button>
+                )}
+              </div>
+            }>
             {sel && <>
               <DPRow label="Return #"  value={sel.returnNumber}/>
               <DPRow label="Invoice"   value={sel.invoiceNumber || '—'}/>
@@ -347,16 +529,18 @@ function SalesReturnsPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Process Return" width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newRet.id ? 'Edit Return' : 'Process Return'} width={500}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={submitReturn}>Submit</button>
+          <button className="btn btn--primary" onClick={doSave}>{newRet.id ? 'Save Changes' : 'Submit'}</button>
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Invoice" value={newRet.invoiceId}
           onChange={v => setNewRet(p => ({...p, invoiceId: v}))} required
           options={invoices.map(i => ({ value: String(i.invoiceId), label: i.invoiceNumber + (i.partnerName ? ' — ' + i.partnerName : '') }))}
           placeholder="Select invoice"/>
+        <FormInput label="Return Date" type="date" value={newRet.returnDate || new Date().toISOString().slice(0, 10)}
+          onChange={v => setNewRet(p => ({...p, returnDate: v}))} required/>
         <FormInput label="Reason for Return" value={newRet.reason}
           onChange={v => setNewRet(p => ({...p, reason: v}))} required placeholder="Describe the reason"/>
       </Modal>

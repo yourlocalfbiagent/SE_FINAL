@@ -19,6 +19,9 @@ public class PurchaseOrder {
     @Column(name = "partner_id", nullable = false)
     private Long partnerId;
 
+    @Column(name = "supplier_id", nullable = false)
+    private Long supplierId;
+
     @Column(name = "created_by")
     private Long createdBy;
 
@@ -35,6 +38,9 @@ public class PurchaseOrder {
     @Column(name = "total_amount", precision = 19, scale = 4)
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

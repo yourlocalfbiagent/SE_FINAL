@@ -6,6 +6,12 @@ const NAV_SECTIONS = [
   { label: 'MAIN', items: [
     { label: 'Dashboard', icon: 'dashboard', path: '/' },
   ]},
+  { label: 'MASTER DATA', items: [
+    { label: 'Products',   icon: 'products',  path: '/master/products' },
+    { label: 'Partners',   icon: 'users',     path: '/master/partners' },
+    { label: 'Warehouses', icon: 'stock',     path: '/master/warehouses' },
+    { label: 'Categories', icon: 'reports',   path: '/master/categories' },
+  ]},
   { label: 'SALES', items: [
     { label: 'Orders', icon: 'orders', path: '/sales/orders' },
     { label: 'Invoices', icon: 'invoices', path: '/sales/invoices' },
@@ -29,6 +35,7 @@ const NAV_SECTIONS = [
   { label: 'ADMIN', items: [
     { label: 'Users', icon: 'users', path: '/admin/users' },
     { label: 'Roles', icon: 'roles', path: '/admin/roles' },
+    { label: 'Permissions', icon: 'config', path: '/admin/permissions' },
     { label: 'Configuration', icon: 'config', path: '/admin/config' },
     { label: 'Audit Log', icon: 'audit', path: '/audit/logs' },
   ]},
@@ -39,6 +46,8 @@ function Sidebar({ route, onNavigate }) {
   const role  = getUserRole()  || 'EMPLOYEE';
   const name  = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const ini   = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'U';
+
+  const allowedModules = getUserModules();
 
   const handleLogout = () => {
     clearAuth();
@@ -52,7 +61,7 @@ function Sidebar({ route, onNavigate }) {
         <span className="sidebar__brand-text">ERP System</span>
       </div>
       <nav className="sidebar__nav">
-        {NAV_SECTIONS.map(sec => (
+        {NAV_SECTIONS.filter(sec => allowedModules.has(sec.label)).map(sec => (
           <div key={sec.label} className="sidebar__section">
             <div className="sidebar__sec-label">{sec.label}</div>
             {sec.items.map(item => (

@@ -25,6 +25,8 @@ public class Permission {
     @JsonIgnore
     private Action action;
 
+    private String description;
+
     public Integer getModuleId()   { return module != null ? module.getModuleId()   : null; }
     public String  getModuleName() { return module != null ? module.getModuleName() : null; }
     public Integer getActionId()   { return action != null ? action.getActionId()   : null; }

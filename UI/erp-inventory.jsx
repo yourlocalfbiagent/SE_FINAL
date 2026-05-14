@@ -29,7 +29,10 @@ const CNT_COLS = [
 // ===== STOCK LEVELS PAGE =====
 function StockLevelsPage() {
   const [sel, setSel]     = useState(null);
+  const [modal, setModal] = useState(false);
+  const [actionErr, setActionErr] = useState('');
   const [filterVals, setFilterVals] = useState({});
+  const [newItem, setNewItem] = useState({ locationName: '', warehouseId: '', productId: '', quantityOnHand: 0 });
 
   const { data: locsRaw,   loading: lL, error: lE, reload: lR } = useLoad(() => erpApi('/api/inventory-locations'));
   const { data: prodsRaw,  loading: pL } = useLoad(() => erpApi('/api/products'));
@@ -68,11 +71,60 @@ function StockLevelsPage() {
     return true;
   });
 
+  const doSave = async () => {
+    setActionErr('');
+    try {
+      const body = {
+        locationName: newItem.locationName,
+        warehouseId:  Number(newItem.warehouseId),
+        productId:    Number(newItem.productId),
+        quantityOnHand: parseFloat(newItem.quantityOnHand) || 0,
+        quantityReserved: parseFloat(newItem.quantityReserved) || 0,
+        quantityAvailable: (parseFloat(newItem.quantityOnHand) || 0) - (parseFloat(newItem.quantityReserved) || 0)
+      };
+      if (newItem.id) {
+        await erpApi('/api/inventory-locations/' + newItem.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/inventory-locations', { method: 'POST', body: JSON.stringify(body) });
+      }
+      setModal(false);
+      lR();
+    } catch(e) { setActionErr(e.message); }
+  };
+
+  const doDelete = async () => {
+    if (!sel || !confirm('Are you sure you want to delete this inventory location?')) return;
+    try {
+      await erpApi('/api/inventory-locations/' + sel.locationId, { method: 'DELETE' });
+      setSel(null);
+      lR();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openAdd = () => {
+    setNewItem({ locationName: '', warehouseId: '', productId: '', quantityOnHand: 0, quantityReserved: 0 });
+    setModal(true);
+  };
+
+  const openEdit = () => {
+    setNewItem({
+      id: sel.locationId,
+      locationName: sel.locationName,
+      warehouseId: String(sel.warehouseId),
+      productId: String(sel.productId),
+      quantityOnHand: sel.quantityOnHand,
+      quantityReserved: sel.quantityReserved,
+    });
+    setModal(true);
+  };
+
   const loading = lL || pL || wL;
 
   return (
     <div>
-      <PageHeader title="Stock Levels" subtitle="Real-time inventory across warehouses"/>
+      <PageHeader title="Stock Levels" subtitle="Real-time inventory across warehouses">
+        <button className="btn btn--primary" onClick={openAdd}>+ Add Location</button>
+      </PageHeader>
       {lE ? <PageError message={lE} onRetry={lR}/> : loading ? <PageLoad/> : (
         <>
           <FilterBar filters={filters} values={filterVals} onChange={setFilterVals}/>
@@ -80,7 +132,13 @@ function StockLevelsPage() {
             <div className="page-split__main">
               <DataTable columns={STK_COLS} data={filtered} selectedId={sel?.id} onRowClick={setSel}/>
             </div>
-            <DetailPanel open={!!sel} onClose={() => setSel(null)} title={sel?.productName || ''}>
+            <DetailPanel open={!!sel} onClose={() => setSel(null)} title={sel?.productName || ''}
+              footer={sel && (
+                <div className="dp__actions">
+                  <button className="btn btn--secondary btn--sm" style={{ flex: 1 }} onClick={openEdit}>Edit</button>
+                  <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
+                </div>
+              )}>
               {sel && <>
                 <DPRow label="Location"   value={sel.locationName}/>
                 <DPRow label="Product"    value={sel.productName}/>
@@ -98,6 +156,25 @@ function StockLevelsPage() {
           </div>
         </>
       )}
+
+      <Modal open={modal} onClose={() => setModal(false)} title={newItem.id ? 'Edit Location' : 'Add Inventory Location'} width={500}
+        footer={<>
+          <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
+          <button className="btn btn--primary" onClick={doSave}>{newItem.id ? 'Save Changes' : 'Add Location'}</button>
+        </>}>
+        {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
+        <FormInput label="Location Name (e.g. Bin-A1)" value={newItem.locationName} onChange={v => setNewItem(p => ({...p, locationName: v}))} required/>
+        <FormRow>
+          <FormSelect label="Warehouse" value={newItem.warehouseId} onChange={v => setNewItem(p => ({...p, warehouseId: v}))} required
+            options={(whsRaw || []).map(w => ({ value: String(w.warehouseId), label: w.warehouseName }))}/>
+          <FormSelect label="Product" value={newItem.productId} onChange={v => setNewItem(p => ({...p, productId: v}))} required
+            options={(prodsRaw || []).map(p => ({ value: String(p.productId), label: p.productName }))}/>
+        </FormRow>
+        <FormRow>
+          <FormInput label="Qty On Hand" type="number" value={newItem.quantityOnHand} onChange={v => setNewItem(p => ({...p, quantityOnHand: v}))} required/>
+          <FormInput label="Qty Reserved" type="number" value={newItem.quantityReserved} onChange={v => setNewItem(p => ({...p, quantityReserved: v}))}/>
+        </FormRow>
+      </Modal>
     </div>
   );
 }
@@ -126,34 +203,61 @@ function StockMovementsPage() {
     qty:         Math.abs(Number(m.quantityChange || 0)),
   })), [movsRaw, prodMap]);
 
-  const recordMovement = async () => {
+  const doSave = async () => {
     setActionErr('');
     try {
-      await erpApi('/api/inventory/stock-movements', {
-        method: 'POST',
-        body: JSON.stringify({
-          productId:      Number(newMov.productId),
-          quantityChange: parseFloat(newMov.quantityChange) || 0,
-          reasonCode:     newMov.reasonCode || 'MANUAL',
-        }),
-      });
+      const body = {
+        productId:      Number(newMov.productId),
+        quantityChange: parseFloat(newMov.quantityChange) || 0,
+        reasonCode:     newMov.reasonCode || 'MANUAL',
+      };
+      if (newMov.id) {
+        await erpApi('/api/inventory/stock-movements/' + newMov.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/inventory/stock-movements', { method: 'POST', body: JSON.stringify(body) });
+      }
       setModal(false);
       setNewMov({ productId: '', quantityChange: '', reasonCode: '' });
       mR();
     } catch(e) { setActionErr(e.message); }
   };
 
+  const doDelete = async () => {
+    if (!sel || !confirm('Are you sure?')) return;
+    try {
+      await erpApi('/api/inventory/stock-movements/' + sel.movementId, { method: 'DELETE' });
+      setSel(null);
+      mR();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewMov({
+      id: sel.movementId,
+      productId: String(sel.productId),
+      quantityChange: String(sel.quantityChange),
+      reasonCode: sel.reasonCode,
+    });
+    setModal(true);
+  };
+
   return (
     <div>
       <PageHeader title="Stock Movements" subtitle="Log of all inventory changes">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setModal(true); }}>+ Record Movement</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewMov({ productId: '', quantityChange: '', reasonCode: '' }); setModal(true); }}>+ Record Movement</button>
       </PageHeader>
       {mE ? <PageError message={mE} onRetry={mR}/> : mL ? <PageLoad/> : (
         <div className="page-split">
           <div className="page-split__main">
             <DataTable columns={MOV_COLS} data={movements} selectedId={sel?.id} onRowClick={setSel} showCheck/>
           </div>
-          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Movement #' + (sel?.movementId || '')}>
+          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Movement #' + (sel?.movementId || '')}
+            footer={sel && (
+              <div className="dp__actions">
+                <button className="btn btn--secondary btn--sm" onClick={openEdit}>Edit</button>
+                <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
+              </div>
+            )}>
             {sel && <>
               <DPRow label="Movement ID"  value={sel.movementId}/>
               <DPRow label="Product"      value={sel.productName}/>
@@ -167,10 +271,10 @@ function StockMovementsPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Record Stock Movement" width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newMov.id ? 'Edit Movement' : 'Record Stock Movement'} width={500}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={recordMovement}>Record</button>
+          <button className="btn btn--primary" onClick={doSave}>{newMov.id ? 'Save Changes' : 'Record'}</button>
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Product" value={newMov.productId}
@@ -213,35 +317,63 @@ function InventoryCountsPage() {
 
   const warehouses = whsRaw || [];
 
-  const createCount = async () => {
+  const doSave = async () => {
     setActionErr('');
     try {
-      await erpApi('/api/inventory/counts', {
-        method: 'POST',
-        body: JSON.stringify({
-          countNumber:  'CNT-' + Date.now(),
-          warehouseId:  newCnt.warehouseId ? Number(newCnt.warehouseId) : null,
-          countDate:    newCnt.countDate || new Date().toISOString().slice(0, 10),
-          status:       'draft',
-        }),
-      });
+      const body = {
+        countNumber:  newCnt.countNumber || 'CNT-' + Date.now(),
+        warehouseId:  newCnt.warehouseId ? Number(newCnt.warehouseId) : null,
+        countDate:    newCnt.countDate || new Date().toISOString().slice(0, 10),
+        status:       newCnt.status || 'draft',
+      };
+      if (newCnt.id) {
+        await erpApi('/api/inventory/counts/' + newCnt.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/inventory/counts', { method: 'POST', body: JSON.stringify(body) });
+      }
       setModal(false);
       setNewCnt({ warehouseId: '', countDate: '' });
       cR();
     } catch(e) { setActionErr(e.message); }
   };
 
+  const doDelete = async () => {
+    if (!sel || !confirm('Are you sure?')) return;
+    try {
+      await erpApi('/api/inventory/counts/' + sel.countId, { method: 'DELETE' });
+      setSel(null);
+      cR();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewCnt({
+      id: sel.countId,
+      countNumber: sel.countNumber,
+      warehouseId: sel.warehouseId ? String(sel.warehouseId) : '',
+      countDate: sel.countDate,
+      status: sel.status,
+    });
+    setModal(true);
+  };
+
   return (
     <div>
       <PageHeader title="Inventory Counts" subtitle="Manage physical stock audits">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setModal(true); }}>+ Create Count</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewCnt({ warehouseId: '', countDate: '' }); setModal(true); }}>+ Create Count</button>
       </PageHeader>
       {cE ? <PageError message={cE} onRetry={cR}/> : cL ? <PageLoad/> : (
         <div className="page-split">
           <div className="page-split__main">
             <DataTable columns={CNT_COLS} data={counts} selectedId={sel?.id} onRowClick={setSel} showCheck/>
           </div>
-          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Count ' + (sel?.countNumber || '')}>
+          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Count ' + (sel?.countNumber || '')}
+            footer={sel && (
+              <div className="dp__actions">
+                <button className="btn btn--secondary btn--sm" onClick={openEdit}>Edit</button>
+                <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
+              </div>
+            )}>
             {sel && <>
               <DPRow label="Count #"   value={sel.countNumber}/>
               <DPRow label="Warehouse" value={sel.warehouseName}/>
@@ -252,10 +384,10 @@ function InventoryCountsPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Create Inventory Count" width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newCnt.id ? 'Edit Count' : 'Create Inventory Count'} width={500}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={createCount}>Create</button>
+          <button className="btn btn--primary" onClick={doSave}>{newCnt.id ? 'Save Changes' : 'Create'}</button>
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Warehouse" value={newCnt.warehouseId}

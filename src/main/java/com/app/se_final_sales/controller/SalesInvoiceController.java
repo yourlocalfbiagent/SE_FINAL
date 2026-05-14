@@ -3,12 +3,15 @@ package com.app.se_final_sales.controller;
 import com.app.se_final_sales.dto.SalesInvoiceRequest;
 import com.app.se_final_sales.dto.SalesInvoiceResponse;
 import com.app.se_final_sales.service.SalesInvoiceService;
+import io.jsonwebtoken.Claims;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,18 +20,21 @@ import java.util.List;
 @RequestMapping("/api/sales-invoices")
 @RequiredArgsConstructor
 @Tag(name = "Sales Invoices", description = "Create and manage sales invoices")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.read')")
 public class SalesInvoiceController {
 
     private final SalesInvoiceService salesInvoiceService;
 
     @PostMapping
     @Operation(summary = "Create a new sales invoice")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.create')")
     public ResponseEntity<SalesInvoiceResponse> createInvoice(@Valid @RequestBody SalesInvoiceRequest request) {
         return new ResponseEntity<>(salesInvoiceService.createInvoice(request), HttpStatus.CREATED);
     }
 
     @PostMapping("/generate-from-order/{orderId}")
     @Operation(summary = "Generate an invoice from an existing sales order")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.create')")
     public ResponseEntity<SalesInvoiceResponse> generateFromOrder(@PathVariable Long orderId) {
         return new ResponseEntity<>(salesInvoiceService.generateInvoiceFromOrder(orderId), HttpStatus.CREATED);
     }
@@ -42,6 +48,23 @@ public class SalesInvoiceController {
     @GetMapping
     @Operation(summary = "List all sales invoices")
     public ResponseEntity<List<SalesInvoiceResponse>> getAllInvoices() {
-        return ResponseEntity.ok(salesInvoiceService.getAllInvoices());
+        Claims claims = (Claims) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long companyId = ((Number) claims.get("companyId")).longValue();
+        return ResponseEntity.ok(salesInvoiceService.getAllInvoices(companyId));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update a sales invoice")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.update')")
+    public ResponseEntity<SalesInvoiceResponse> updateInvoice(@PathVariable Long id, @Valid @RequestBody SalesInvoiceRequest request) {
+        return ResponseEntity.ok(salesInvoiceService.updateInvoice(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a sales invoice")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.delete')")
+    public ResponseEntity<Void> deleteInvoice(@PathVariable Long id) {
+        salesInvoiceService.deleteInvoice(id);
+        return ResponseEntity.noContent().build();
     }
 }

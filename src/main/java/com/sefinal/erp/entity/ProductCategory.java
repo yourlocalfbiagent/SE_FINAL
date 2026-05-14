@@ -22,4 +22,7 @@ public class ProductCategory {
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

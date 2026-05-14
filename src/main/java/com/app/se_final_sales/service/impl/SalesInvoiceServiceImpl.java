@@ -115,9 +115,47 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
     }
 
     @Override
-    public List<SalesInvoiceResponse> getAllInvoices() {
-        return salesInvoiceRepository.findAll().stream()
+    public List<SalesInvoiceResponse> getAllInvoices(Long companyId) {
+        return salesInvoiceRepository.findByPartnerCompanyId(companyId).stream()
                 .map(salesInvoiceMapper::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public SalesInvoiceResponse updateInvoice(Long id, SalesInvoiceRequest request) {
+        SalesInvoice existing = salesInvoiceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with ID: " + id));
+
+        existing.getLines().clear();
+        SalesInvoice updatedEntity = salesInvoiceMapper.toEntity(request);
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (SalesInvoiceLine line : updatedEntity.getLines()) {
+            Product product = productRepository.findById(line.getProduct().getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + line.getProduct().getProductId()));
+            line.setProduct(product);
+            line.setInvoice(existing);
+            BigDecimal lineTotal = line.getUnitPrice().multiply(line.getQuantity());
+            line.setLineTotal(lineTotal);
+            subtotal = subtotal.add(lineTotal);
+            existing.getLines().add(line);
+        }
+
+        existing.setSubtotal(subtotal);
+        existing.setTaxAmount(subtotal.multiply(new BigDecimal("0.10")));
+        existing.setTotalAmount(existing.getSubtotal().add(existing.getTaxAmount()));
+        existing.setInvoiceDate(request.getInvoiceDate());
+        existing.setDueDate(request.getDueDate());
+        existing.setStatus(request.getStatus());
+
+        return salesInvoiceMapper.toResponse(salesInvoiceRepository.save(existing));
+    }
+
+    @Override
+    public void deleteInvoice(Long id) {
+        if (!salesInvoiceRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Invoice not found with ID: " + id);
+        }
+        salesInvoiceRepository.deleteById(id);
     }
 }

@@ -31,6 +31,9 @@ public class InventoryCount {
     @Builder.Default
     private String status = "draft";
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

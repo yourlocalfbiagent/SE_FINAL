@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,18 +19,21 @@ import java.util.List;
 @RequestMapping("/api/approvals")
 @RequiredArgsConstructor
 @Tag(name = "Approvals", description = "Invoice approval workflow")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.read')")
 public class ApprovalController {
 
     private final ApprovalService approvalService;
 
     @PostMapping
     @Operation(summary = "Submit an invoice for approval")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.update')")
     public ResponseEntity<ApprovalResponse> submitForApproval(@Valid @RequestBody ApprovalRequestDTO request) {
         return new ResponseEntity<>(approvalService.submitForApproval(request), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}/review")
     @Operation(summary = "Approve or reject an approval request")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES.approve')")
     public ResponseEntity<ApprovalResponse> reviewApproval(@PathVariable Long id, @Valid @RequestBody ApprovalReviewDTO review) {
         return ResponseEntity.ok(approvalService.reviewApproval(id, review));
     }

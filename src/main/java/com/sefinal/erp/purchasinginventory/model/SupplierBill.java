@@ -22,6 +22,9 @@ public class SupplierBill {
     @Column(name = "partner_id", nullable = false)
     private Long partnerId;
 
+    @Column(name = "supplier_id", nullable = false)
+    private Long supplierId;
+
     @Column(name = "po_id")
     private Long poId;
 
@@ -49,6 +52,9 @@ public class SupplierBill {
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "draft";
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
