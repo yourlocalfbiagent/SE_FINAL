@@ -15,6 +15,13 @@ public class GoodsReceipt {
     @Column(name = "receipt_id")
     private Long receiptId;
 
+    @Column(name = "receipt_number", nullable = false, length = 50)
+    private String receiptNumber;
+
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private String status = "received";
+
     @Column(name = "po_id")
     private Long poId;
 
@@ -26,6 +33,9 @@ public class GoodsReceipt {
 
     @Column(length = 1000)
     private String notes;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

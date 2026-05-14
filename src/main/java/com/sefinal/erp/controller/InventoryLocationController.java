@@ -3,12 +3,14 @@ package com.sefinal.erp.controller;
 import com.sefinal.erp.entity.InventoryLocation;
 import com.sefinal.erp.exception.ResourceNotFoundException;
 import com.sefinal.erp.repository.InventoryLocationRepository;
+import com.sefinal.erp.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.List;
 @RequestMapping("/api/inventory-locations")
 @RequiredArgsConstructor
 @Tag(name = "Inventory Locations", description = "Manage stock positions within warehouses")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.read')")
 public class InventoryLocationController {
 
     private final InventoryLocationRepository repo;
@@ -24,7 +27,7 @@ public class InventoryLocationController {
     @GetMapping
     @Operation(summary = "List all inventory locations")
     public List<InventoryLocation> getAll() {
-        return repo.findAll();
+        return repo.findByCompanyId(SecurityUtils.getCompanyId());
     }
 
     @GetMapping("/warehouse/{warehouseId}")
@@ -48,7 +51,9 @@ public class InventoryLocationController {
 
     @PostMapping
     @Operation(summary = "Create an inventory location")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.create')")
     public ResponseEntity<InventoryLocation> create(@Valid @RequestBody InventoryLocation location) {
+        location.setCompanyId(SecurityUtils.getCompanyId());
         return ResponseEntity.status(HttpStatus.CREATED).body(repo.save(location));
     }
 

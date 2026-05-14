@@ -59,13 +59,16 @@ CLAUDE.md
 
 # AI files
 GEMINI.md
-
-# Auto-generated GitHub tooling
-.github/
+Gemini/
 
 # Markdown planning files
 plan.md
 JIRA_BACKLOG.md
 
+# Auto-generated GitHub tooling
+.github/java-upgrade/
 
+# Gemini local config
 /gemini
+
+

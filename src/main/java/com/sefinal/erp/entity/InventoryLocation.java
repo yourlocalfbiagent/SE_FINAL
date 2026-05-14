@@ -34,4 +34,7 @@ public class InventoryLocation {
     @Builder.Default
     @Column(name = "quantity_available", precision = 19, scale = 4)
     private BigDecimal quantityAvailable = BigDecimal.ZERO;
+
+    @Column(name = "company_id")
+    private Long companyId;
 }

@@ -340,6 +340,9 @@
     .perm-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: default; padding: 3px 0; }
     .perm-item input { accent-color: var(--color-primary); }
     .perm-item--off { color: var(--text-muted); }
+    .perm-item--active { background: #fffbeb; border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; padding: 4px 8px; border-radius: 6px; }
+    .perm-item:hover { background: #f1f5f9; border-radius: 6px; }
+    .perm-item--active:hover { background: #fef3c7; }
 
     /* ===== ERROR PAGE ===== */
     .error-page {
@@ -389,6 +392,7 @@
   <script type="text/babel" src="erp-sales.jsx"></script>
   <script type="text/babel" src="erp-purchase.jsx"></script>
   <script type="text/babel" src="erp-inventory.jsx"></script>
+  <script type="text/babel" src="erp-master.jsx"></script>
   <script type="text/babel" src="erp-admin.jsx"></script>
   <script type="text/babel" src="erp-reports-audit.jsx"></script>
   <script type="text/babel" src="erp-app.jsx"></script>

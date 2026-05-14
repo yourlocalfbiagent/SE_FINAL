@@ -3,6 +3,7 @@ package com.sefinal.erp.admin.auth;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -35,11 +36,17 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     public static CurrentUser current(HttpServletRequest request) {
-        Object u = request.getAttribute(CURRENT_USER_ATTR);
-        if (!(u instanceof CurrentUser cu)) {
-            throw new IllegalStateException("No current user on request — auth interceptor not run?");
+        // Prefer JWT principal set by JwtAuthenticationFilter
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CurrentUser cu) {
+            return cu;
         }
-        return cu;
+        // Fallback: legacy cookie-session attribute
+        Object u = request.getAttribute(CURRENT_USER_ATTR);
+        if (u instanceof CurrentUser cu) {
+            return cu;
+        }
+        throw new IllegalStateException("No authenticated user on request");
     }
 
     private Optional<String> readSessionId(HttpServletRequest req) {

@@ -12,7 +12,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -36,11 +38,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Object roleIdObj = claims.get("roleId");
                 Integer roleId = roleIdObj != null ? ((Number) roleIdObj).intValue() : null;
                 String role = claims.get("role", String.class);
+                List<String> perms = claims.get("perms", List.class);
 
                 CurrentUser principal = new CurrentUser(userId, companyId, email, roleId);
-                List<SimpleGrantedAuthority> authorities = role != null
-                        ? List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                        : List.of();
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                if (role != null) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
+                }
+                if (perms != null) {
+                    authorities.addAll(perms.stream()
+                            .map(SimpleGrantedAuthority::new)
+                            .collect(Collectors.toList()));
+                }
+                
                 var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }

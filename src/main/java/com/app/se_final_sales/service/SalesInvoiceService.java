@@ -9,5 +9,7 @@ public interface SalesInvoiceService {
     SalesInvoiceResponse createInvoice(SalesInvoiceRequest request);
     SalesInvoiceResponse generateInvoiceFromOrder(Long orderId);
     SalesInvoiceResponse getInvoiceById(Long id);
-    List<SalesInvoiceResponse> getAllInvoices();
+    List<SalesInvoiceResponse> getAllInvoices(Long companyId);
+    SalesInvoiceResponse updateInvoice(Long id, SalesInvoiceRequest request);
+    void deleteInvoice(Long id);
 }

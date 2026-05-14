@@ -1,15 +1,11 @@
 package com.sefinal.erp.admin.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "audit_log")
-@Getter @Setter @NoArgsConstructor
 public class AuditLog {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,6 +32,8 @@ public class AuditLog {
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    public AuditLog() {}
+
     public AuditLog(Integer userId, Integer companyId, String action,
                     String entityType, Integer entityId, String details) {
         this.userId     = userId;
@@ -45,4 +43,27 @@ public class AuditLog {
         this.entityId   = entityId;
         this.details    = details;
     }
+
+    public Long getAuditId() { return auditId; }
+    public void setAuditId(Long auditId) { this.auditId = auditId; }
+
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    public Integer getCompanyId() { return companyId; }
+    public void setCompanyId(Integer companyId) { this.companyId = companyId; }
+
+    public String getAction() { return action; }
+    public void setAction(String action) { this.action = action; }
+
+    public String getEntityType() { return entityType; }
+    public void setEntityType(String entityType) { this.entityType = entityType; }
+
+    public Integer getEntityId() { return entityId; }
+    public void setEntityId(Integer entityId) { this.entityId = entityId; }
+
+    public String getDetails() { return details; }
+    public void setDetails(String details) { this.details = details; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

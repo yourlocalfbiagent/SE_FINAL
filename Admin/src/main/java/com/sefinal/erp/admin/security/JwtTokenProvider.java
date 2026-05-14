@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtTokenProvider {
@@ -17,16 +19,21 @@ public class JwtTokenProvider {
     @Value("${app.jwt.secret:erpsystem-default-secret-key-for-dev-only-must-be-32-chars-2024}")
     private String secret;
 
-    @Value("${app.jwt.expiration-ms:86400000}")
+    @Value("${app.jwt.expiration-ms:86400000}") // testing cache layer
     private long expirationMs;
 
     public String generateToken(int userId, int companyId, String email, Integer roleId, String roleName) {
+        return generateToken(userId, companyId, email, roleId, roleName, Collections.emptyList());
+    }
+
+    public String generateToken(int userId, int companyId, String email, Integer roleId, String roleName, List<String> permissions) {
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId)
                 .claim("companyId", companyId)
                 .claim("roleId", roleId)
                 .claim("role", roleName)
+                .claim("perms", permissions)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getKey())
