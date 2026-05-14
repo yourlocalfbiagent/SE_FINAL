@@ -1,6 +1,5 @@
-package com.sefinal.erp.admin.config;
+package com.sefinal.erp.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -11,9 +10,6 @@ import java.util.List;
 
 @Configuration
 public class CorsConfig {
-
-    @Value("${app.erp.base-url:http://localhost:8080}")
-    private String erpBaseUrl;
 
     @Bean
     public CorsFilter corsFilter() {

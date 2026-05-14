@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP System — Login / Register</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --color-primary: #f59e0b;
+      --color-primary-hover: #d97706;
+      --bg-warm: #f0ebe4;
+      --bg-card: #ffffff;
+      --bg-dark: #1e293b;
+      --bg-dark-light: #273548;
+      --bg-input: #f8fafc;
+      --color-text: #0f172a;
+      --color-text-sec: #475569;
+      --color-text-muted: #94a3b8;
+      --color-border: #e2e8f0;
+      --color-error: #ef4444;
+      --color-error-bg: #fee2e2;
+      --color-success: #10b981;
+      --radius: 12px;
+      --radius-lg: 20px;
+      --radius-sm: 8px;
+      --shadow-card: 0 25px 60px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg-warm);
+      color: var(--color-text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    a { color: var(--color-primary); text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+
+    /* ===== AUTH LAYOUT ===== */
+    .auth-wrapper {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .auth-card {
+      display: flex;
+      width: 100%;
+      max-width: 1060px;
+      min-height: 640px;
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+    .auth-card--fade { opacity: 0; transform: translateY(8px); }
+    .auth-form-panel {
+      flex: 1;
+      padding: 40px 44px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    .auth-brand-panel {
+      flex: 1;
+      background: var(--bg-dark);
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      min-height: 640px;
+    }
+
+    /* ===== BRAND PANEL ===== */
+    .brand { position: relative; z-index: 1; text-align: center; }
+    .brand__content { position: relative; z-index: 2; }
+    .brand__name { color: #ffffff; font-size: 32px; font-weight: 700; margin-top: 20px; letter-spacing: -0.5px; }
+    .brand__tagline { color: var(--color-text-muted); font-size: 15px; margin-top: 8px; font-weight: 400; }
+    .brand__circle { position: absolute; border-radius: 50%; pointer-events: none; }
+    .brand__circle--1 {
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(245,158,11,0.07) 0%, transparent 70%);
+      top: -100px; right: -80px;
+    }
+    .brand__circle--2 {
+      width: 240px; height: 240px;
+      background: radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 70%);
+      bottom: -60px; left: -50px;
+    }
+
+    /* ===== FORM CHROME ===== */
+    .auth-form { display: flex; flex-direction: column; gap: 16px; margin: auto 0; }
+    .form-logo { margin-bottom: 4px; }
+    .form-greeting { font-size: 14px; color: var(--color-text-muted); margin-bottom: -8px; }
+    .form-title { font-size: 26px; font-weight: 700; color: var(--color-text); letter-spacing: -0.4px; }
+    .form-subtitle { font-size: 14px; color: var(--color-text-sec); margin-top: -8px; margin-bottom: 4px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row > .field { flex: 1; }
+    .form-footer { text-align: center; font-size: 14px; color: var(--color-text-sec); margin-top: 4px; }
+    .form-link {
+      background: none; border: none; color: var(--color-primary); font-weight: 700;
+      font-size: 14px; cursor: pointer; font-family: var(--font); padding: 0;
+    }
+    .form-link:hover { text-decoration: underline; }
+    .form-forgot { text-align: right; margin-top: -8px; }
+    .form-forgot a { font-size: 13px; font-weight: 500; color: var(--color-text-sec); }
+    .form-forgot a:hover { color: var(--color-primary); }
+    .form-error-banner {
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+      background: var(--color-error-bg); color: var(--color-error); font-size: 13px;
+      font-weight: 500; border-radius: var(--radius-sm); animation: slideDown 0.3s ease;
+    }
+
+    /* ===== FIELDS ===== */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field__label { font-size: 13px; font-weight: 500; color: #334155; }
+    .field__input {
+      width: 100%; height: 44px; padding: 0 14px; background: var(--bg-input);
+      border: 1.5px solid var(--color-border); border-radius: var(--radius-sm);
+      font-size: 14px; font-family: var(--font); color: var(--color-text);
+      transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+    }
+    .field__input::placeholder { color: var(--color-text-muted); }
+    .field__input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
+      background: #fff;
+    }
+    .field--error .field__input { border-color: var(--color-error); box-shadow: 0 0 0 3px rgba(239,68,68,0.08); }
+    .field__error-msg {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 12px; font-weight: 500; color: var(--color-error); animation: slideDown 0.2s ease;
+    }
+    .field__pw-wrap { position: relative; }
+    .field__input--pw { padding-right: 44px; }
+    .field__toggle {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--color-text-muted);
+      border-radius: 6px; transition: color 0.2s, background 0.2s;
+    }
+    .field__toggle:hover { color: var(--color-text-sec); background: rgba(0,0,0,0.04); }
+
+    /* ===== CHECKBOX ===== */
+    .field-checkbox {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 13px; color: var(--color-text-sec); cursor: pointer; line-height: 1.4;
+    }
+    .field-checkbox input[type="checkbox"] {
+      width: 16px; height: 16px; margin-top: 2px;
+      accent-color: var(--color-primary); cursor: pointer; flex-shrink: 0;
+    }
+    .field-checkbox a { font-weight: 600; }
+
+    /* ===== PASSWORD STRENGTH ===== */
+    .strength { margin-top: 2px; }
+    .strength__bar { height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+    .strength__fill { height: 100%; border-radius: 2px; transition: width 0.4s ease, background 0.4s ease; }
+    .strength__label { font-size: 11px; font-weight: 600; margin-top: 4px; display: block; }
+    .strength__checks { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+    .strength__check { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--color-text-muted); transition: color 0.2s; }
+    .strength__check--ok { color: var(--color-success); }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      height: 46px; padding: 0 24px; border: none; border-radius: var(--radius-sm);
+      font-size: 15px; font-weight: 600; font-family: var(--font); cursor: pointer;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn--primary { background: var(--color-primary); color: #ffffff; width: 100%; }
+    .btn--primary:hover:not(:disabled) { background: var(--color-primary-hover); box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
+    .btn--primary:disabled { opacity: 0.7; cursor: not-allowed; }
+    .btn--loading { pointer-events: none; }
+    .btn__spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+
+    /* ===== SUCCESS SCREEN ===== */
+    .success {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; gap: 12px; padding: 20px 0; animation: fadeIn 0.5s ease;
+    }
+    .success__title { font-size: 28px; font-weight: 700; color: var(--color-text); margin-top: 8px; }
+    .success__subtitle { font-size: 15px; color: var(--color-text-sec); line-height: 1.5; max-width: 320px; }
+    .success__email { font-size: 14px; color: var(--color-primary); font-weight: 600; }
+    .success__role { display: inline-block; padding: 4px 12px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 600; border-radius: 20px; }
+    .success .btn { margin-top: 8px; width: auto; min-width: 200px; }
+    .success-check-svg .success-circle {
+      stroke-dasharray: 226; stroke-dashoffset: 226;
+      animation: circleDraw 0.6s ease forwards;
+    }
+    .success-check-svg .success-path {
+      stroke-dasharray: 50; stroke-dashoffset: 50;
+      animation: checkDraw 0.4s 0.5s ease forwards;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes circleDraw { to { stroke-dashoffset: 0; } }
+    @keyframes checkDraw { to { stroke-dashoffset: 0; } }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .auth-card { flex-direction: column; max-width: 480px; min-height: auto; }
+      .auth-brand-panel { min-height: 180px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); order: -1; }
+      .auth-form-panel { padding: 28px 24px; }
+      .form-row { flex-direction: column; gap: 16px; }
+      .brand__name { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="erp-api.jsx"></script>
+  <script type="text/babel" src="erp-auth-components.jsx"></script>
+</body>
+</html>
