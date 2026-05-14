@@ -4,8 +4,11 @@ FROM maven:3.9.9-eclipse-temurin-21 AS builder
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the pom.xml and source code
+# Copy only the pom.xml first to cache dependencies
 COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy the source code
 COPY src ./src
 
 # Build the application
