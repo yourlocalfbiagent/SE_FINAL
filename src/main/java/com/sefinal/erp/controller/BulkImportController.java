@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.List;
 @RequestMapping("/api/bulk-imports")
 @RequiredArgsConstructor
 @Tag(name = "Bulk Imports", description = "Track bulk data import jobs and their errors")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('MASTER DATA.read')")
 public class BulkImportController {
 
     private final BulkImportRepository importRepo;
@@ -52,12 +54,14 @@ public class BulkImportController {
 
     @PostMapping
     @Operation(summary = "Create a bulk import record")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('MASTER DATA.create')")
     public ResponseEntity<BulkImport> create(@Valid @RequestBody BulkImport bulkImport) {
         return ResponseEntity.status(HttpStatus.CREATED).body(importRepo.save(bulkImport));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a bulk import record")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('MASTER DATA.update')")
     public BulkImport update(@PathVariable Long id, @Valid @RequestBody BulkImport bulkImport) {
         if (!importRepo.existsById(id)) throw new ResourceNotFoundException("BulkImport not found: " + id);
         bulkImport.setImportId(id);

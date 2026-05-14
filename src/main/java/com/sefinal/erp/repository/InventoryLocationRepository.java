@@ -10,4 +10,5 @@ import java.util.List;
 public interface InventoryLocationRepository extends JpaRepository<InventoryLocation, Long> {
     List<InventoryLocation> findByWarehouseId(Long warehouseId);
     List<InventoryLocation> findByProductId(Long productId);
+    List<InventoryLocation> findByCompanyId(Long companyId);
 }

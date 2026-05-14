@@ -24,6 +24,33 @@ public final class Dtos {
             Boolean isActive
     ) {}
 
+    public record UpdateRoleRequest(
+            String roleName,
+            String description,
+            Boolean isActive
+    ) {}
+
+    public record UpdateRolePermissionsRequest(
+            java.util.List<Integer> permissionIds
+    ) {}
+
+    public record CreatePermissionRequest(
+            String moduleName,
+            String actionName,
+            String description
+    ) {}
+
+    public record ModuleRequest(
+            String moduleName,
+            String description,
+            Boolean isActive
+    ) {}
+
+    public record ActionRequest(
+            String actionName,
+            String description
+    ) {}
+
     public record CreateUserRequest(
             String firstName,
             String lastName,
@@ -32,5 +59,22 @@ public final class Dtos {
             Integer roleId,
             Boolean isActive,
             Boolean mfaEnabled
+    ) {}
+
+    public record UpdateUserRequest(
+            String firstName,
+            String lastName,
+            String email,
+            Integer roleId,
+            Boolean isActive,
+            Boolean mfaEnabled
+    ) {}
+
+    public record RegisterRequest(
+            String companyName,
+            String firstName,
+            String lastName,
+            String email,
+            String password
     ) {}
 }

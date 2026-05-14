@@ -27,13 +27,36 @@ function clearAuth() {
     .forEach(k => localStorage.removeItem(k));
 }
 
+// Decode JWT payload and return the perms array (e.g. ["SALES.read", "SALES.create"])
+function getUserPermissions() {
+  const token = getToken();
+  if (!token) return [];
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.perms || [];
+  } catch { return []; }
+}
+
+// Returns a Set of module names the user has any permission for (e.g. Set{"SALES","INVENTORY"})
+function getUserModules() {
+  const role = getUserRole();
+  if (role === 'ADMIN') return new Set(['MAIN', 'MASTER DATA', 'SALES', 'PURCHASING', 'INVENTORY', 'REPORTS', 'ADMIN']);
+  const perms = getUserPermissions();
+  const mods = new Set(['MAIN']); // Dashboard always accessible
+  perms.forEach(p => {
+    const dot = p.indexOf('.');
+    if (dot > 0) mods.add(p.substring(0, dot));
+  });
+  return mods;
+}
+
 // ---- HTTP helpers ----
 async function _call(base, path, opts = {}) {
   const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const res = await fetch(base + path, { ...opts, headers });
-  if (res.status === 401) {
+  if (res.status === 401 || (res.status === 403 && !token)) {
     clearAuth();
     window.location.href = 'Registration.html';
     return null;
@@ -95,6 +118,7 @@ function PageError({ message, onRetry }) {
 Object.assign(window, {
   ERP_BASE, ADMIN_BASE,
   getToken, getCompanyId, getUserId, getUserEmail, getUserRole,
-  saveAuth, clearAuth, erpApi, adminApi,
+  saveAuth, clearAuth, getUserPermissions, getUserModules,
+  erpApi, adminApi,
   useLoad, PageLoad, PageError,
 });

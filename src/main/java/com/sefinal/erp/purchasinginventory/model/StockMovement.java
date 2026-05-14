@@ -15,6 +15,15 @@ public class StockMovement {
     @Column(name = "movement_id")
     private Long movementId;
 
+    @Column(name = "movement_date", nullable = false)
+    private java.time.LocalDateTime movementDate;
+
+    @Column(name = "movement_type", nullable = false, length = 20)
+    private String movementType;
+
+    @Column(nullable = false, precision = 19, scale = 4)
+    private BigDecimal quantity;
+
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
@@ -44,6 +53,9 @@ public class StockMovement {
 
     @Column(name = "reference_id")
     private Long referenceId;
+
+    @Column(name = "company_id")
+    private Long companyId;
 
     @Column(name = "moved_at", nullable = false, updatable = false)
     @Builder.Default

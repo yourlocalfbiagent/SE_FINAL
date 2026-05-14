@@ -227,7 +227,6 @@ function RegisterForm({ onSuccess, onLogin }) {
 
     setSubmitting(true);
     try {
-      // POST /api/auth/register
       const res = await fetch(ADMIN_BASE + '/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,18 +237,22 @@ function RegisterForm({ onSuccess, onLogin }) {
       });
       if (res.ok) {
         const data = await res.json();
-        onSuccess({ firstName: form.firstName, lastName: form.lastName,
-          email: form.email, companyName: form.companyName, role: data.role || 'ADMIN' });
-      } else if (res.status === 409) {
-        setServerError('An account with this email already exists.');
+        saveAuth(data);
+        onSuccess({
+          firstName:   form.firstName,
+          lastName:    form.lastName,
+          email:       data.email || form.email,
+          companyName: data.companyName || form.companyName,
+          role:        data.role || 'ADMIN',
+        });
       } else {
-        setServerError('Registration failed. Please try again.');
+        let msg = 'Registration failed. Please try again.';
+        try { const j = await res.json(); msg = j.detail || j.message || msg; } catch {}
+        if (res.status === 409) msg = 'An account with this email already exists.';
+        setServerError(msg);
       }
-    } catch {
-      // Fallback for standalone UI mode (no backend)
-      await new Promise(r => setTimeout(r, 800));
-      onSuccess({ firstName: form.firstName, lastName: form.lastName,
-        email: form.email, companyName: form.companyName, role: 'ADMIN' });
+    } catch (err) {
+      setServerError('Cannot reach the server. Make sure the Admin service is running on port 8081.');
     }
     setSubmitting(false);
   };
@@ -257,8 +260,8 @@ function RegisterForm({ onSuccess, onLogin }) {
   return (
     <form className="auth-form" onSubmit={submit} noValidate>
       <div className="form-logo"><ERPLogo size={42}/></div>
-      <h1 className="form-title">Create your account</h1>
-      <p className="form-subtitle">Get started with your enterprise workspace</p>
+      <h1 className="form-title">Set up your company</h1>
+      <p className="form-subtitle">Create your company and admin account to get started</p>
 
       {serverError && (
         <div className="form-error-banner"><AlertIcon/> {serverError}</div>
@@ -302,12 +305,12 @@ function RegisterForm({ onSuccess, onLogin }) {
 
       <button type="submit" className={'btn btn--primary' + (submitting ? ' btn--loading' : '')}
         disabled={submitting}>
-        {submitting ? (<><span className="btn__spinner"></span>Creating Account…</>) : 'Create Account'}
+        {submitting ? (<><span className="btn__spinner"></span>Creating Company…</>) : 'Create Company & Admin Account'}
       </button>
 
       <p className="form-footer">
         Already have an account?{' '}
-        <button type="button" className="form-link" onClick={onLogin}>Login</button>
+        <button type="button" className="form-link" onClick={onLogin}>Sign in</button>
       </p>
     </form>
   );
@@ -412,27 +415,28 @@ function LoginForm({ onRegister }) {
 }
 
 // -------------------- SUCCESS SCREEN --------------------
-function SuccessScreen({ userData, onLogin }) {
-  const [countdown, setCountdown] = useState(5);
+function SuccessScreen({ userData }) {
+  const [countdown, setCountdown] = useState(3);
 
   useEffect(() => {
-    if (countdown <= 0) { onLogin(); return; }
+    if (countdown <= 0) { window.location.href = 'index.html'; return; }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [countdown, onLogin]);
+  }, [countdown]);
 
   return (
     <div className="success">
       <SuccessCheckIcon/>
-      <h1 className="success__title">Account Created!</h1>
+      <h1 className="success__title">Company Created!</h1>
       <p className="success__subtitle">
-        Welcome, <strong>{userData?.firstName}</strong>. Your workspace
-        for <strong>{userData?.companyName}</strong> is ready.
+        Welcome, <strong>{userData?.firstName}</strong>! Your company
+        <strong> {userData?.companyName}</strong> is set up and you're logged in as Admin.
       </p>
       <p className="success__email">{userData?.email}</p>
       <p className="success__role">Role: {userData?.role}</p>
-      <button type="button" className="btn btn--primary" onClick={onLogin}>
-        Go to Login ({countdown}s)
+      <button type="button" className="btn btn--primary"
+        onClick={() => { window.location.href = 'index.html'; }}>
+        Go to Dashboard ({countdown}s)
       </button>
     </div>
   );
@@ -472,7 +476,7 @@ function AuthApp() {
         {view === 'success' && (
           <>
             <div className="auth-form-panel">
-              <SuccessScreen userData={userData} onLogin={() => switchTo('login')}/>
+              <SuccessScreen userData={userData}/>
             </div>
             <div className="auth-brand-panel">
               <BrandPanel/>

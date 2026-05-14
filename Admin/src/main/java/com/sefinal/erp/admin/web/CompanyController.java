@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +27,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/companies")
 @Tag(name = "Companies", description = "Company management")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.read')")
 public class CompanyController {
 
     private final CompanyRepository companies;
@@ -49,6 +51,7 @@ public class CompanyController {
 
     @PostMapping
     @Operation(summary = "Create a new company")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.create')")
     public ResponseEntity<Company> create(@RequestBody CreateCompanyRequest req, HttpServletRequest request) {
         if (req.companyName() == null || req.companyName().isBlank()) {
             throw new BadRequestException("companyName is required");
@@ -69,6 +72,7 @@ public class CompanyController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a company")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ADMIN.update')")
     public Company update(@PathVariable int id, @RequestBody CreateCompanyRequest req, HttpServletRequest request) {
         Company c = companies.findById(id)
                 .orElseThrow(() -> new NotFoundException("company " + id + " not found"));

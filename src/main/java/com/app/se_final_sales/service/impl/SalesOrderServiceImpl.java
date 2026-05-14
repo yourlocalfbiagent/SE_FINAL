@@ -81,8 +81,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     @Override
-    public List<SalesOrderResponse> getAllOrders() {
-        return salesOrderRepository.findAll().stream()
+    public List<SalesOrderResponse> getAllOrders(Long companyId) {
+        return salesOrderRepository.findByPartnerCompanyId(companyId).stream()
                 .map(salesOrderMapper::toResponse)
                 .collect(Collectors.toList());
     }
@@ -98,5 +98,58 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         
         salesOrder.setStatus("CONFIRMED");
         return salesOrderMapper.toResponse(salesOrderRepository.save(salesOrder));
+    }
+
+    @Override
+    public SalesOrderResponse updateOrder(Long id, SalesOrderRequest request) {
+        SalesOrder existing = salesOrderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sales Order not found with ID: " + id));
+        
+        if (!"DRAFT".equals(existing.getStatus())) {
+            throw new IllegalStateException("Only DRAFT orders can be updated.");
+        }
+
+        // Simple update logic: clear lines and re-add from request
+        existing.getLines().clear();
+        
+        SalesOrder updatedEntity = salesOrderMapper.toEntity(request);
+        
+        // Validate Partner
+        BusinessPartner partner = businessPartnerRepository.findById(request.getPartnerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Partner not found with ID: " + request.getPartnerId()));
+        existing.setPartner(partner);
+
+        // Recalculate totals
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (SalesOrderLine line : updatedEntity.getLines()) {
+            Product product = productRepository.findById(line.getProduct().getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + line.getProduct().getProductId()));
+            
+            line.setProduct(product);
+            line.setSalesOrder(existing);
+            
+            BigDecimal lineTotal = line.getUnitPrice().multiply(line.getQuantity());
+            line.setLineTotal(lineTotal);
+            subtotal = subtotal.add(lineTotal);
+            existing.getLines().add(line);
+        }
+
+        existing.setSubtotal(subtotal);
+        existing.setTaxAmount(subtotal.multiply(new BigDecimal("0.10"))); 
+        existing.setTotalAmount(existing.getSubtotal().add(existing.getTaxAmount()));
+
+        return salesOrderMapper.toResponse(salesOrderRepository.save(existing));
+    }
+
+    @Override
+    public void deleteOrder(Long id) {
+        SalesOrder salesOrder = salesOrderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sales Order not found with ID: " + id));
+        
+        if (!"DRAFT".equals(salesOrder.getStatus())) {
+            throw new IllegalStateException("Only DRAFT orders can be deleted.");
+        }
+        
+        salesOrderRepository.delete(salesOrder);
     }
 }

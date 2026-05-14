@@ -17,6 +17,8 @@ public class Module {
     @Column(name = "module_name", nullable = false, unique = true)
     private String moduleName;
 
+    private String description;
+
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 }

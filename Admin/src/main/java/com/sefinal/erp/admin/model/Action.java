@@ -16,4 +16,6 @@ public class Action {
 
     @Column(name = "action_name", nullable = false, unique = true)
     private String actionName;
+
+    private String description;
 }

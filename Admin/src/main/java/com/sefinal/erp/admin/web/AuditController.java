@@ -15,6 +15,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/audit-log")
 @Tag(name = "Audit Log", description = "Query and export audit trail")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('REPORTS.read')")
 public class AuditController {
 
     private final AuditLogRepository auditRepo;

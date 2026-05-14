@@ -17,6 +17,10 @@ function ERPApp() {
   const renderPage = () => {
     switch (route) {
       case '/': return <DashboardPage/>;
+      case '/master/products':   return <ProductManagementPage/>;
+      case '/master/partners':   return <PartnerManagementPage/>;
+      case '/master/warehouses': return <WarehouseManagementPage/>;
+      case '/master/categories': return <CategoryManagementPage/>;
       case '/sales/orders': return <SalesOrdersPage onNavigate={navigate}/>;
       case '/sales/invoices': return <SalesInvoicesPage/>;
       case '/sales/payments': return <PaymentsPage/>;
@@ -31,6 +35,7 @@ function ERPApp() {
       case '/reports/sales': return <SalesSummaryPage/>;
       case '/admin/users': return <UserManagementPage/>;
       case '/admin/roles': return <RoleManagementPage/>;
+      case '/admin/permissions': return <PermissionCatalogPage/>;
       case '/admin/config': return <SystemConfigPage/>;
       case '/audit/logs': return <AuditLogPage/>;
       default: return <ErrorPage code={404} onNavigate={navigate}/>;

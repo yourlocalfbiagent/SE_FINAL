@@ -36,22 +36,78 @@ function usePartnerMap() {
 
 // ===== PURCHASE ORDERS PAGE =====
 function PurchaseOrdersPage() {
-  const [sel, setSel]         = useState(null);
-  const [modal, setModal]     = useState(false);
+  const [sel, setSel]             = useState(null);
+  const [modal, setModal]         = useState(false);
   const [actionErr, setActionErr] = useState('');
+  const [newPO, setNewPO]         = useState({ partnerId: '', orderDate: '', totalAmount: '' });
 
+  const { data: partnersRaw } = useLoad(() => erpApi('/api/business-partners'));
   const partnerMap = usePartnerMap();
   const { data: poRaw, loading, error, reload } = useLoad(() => erpApi('/api/purchase-orders'));
+
+  const suppliers = React.useMemo(
+    () => (partnersRaw || []).filter(p => !p.type || p.type.toUpperCase() === 'SUPPLIER'),
+    [partnersRaw]
+  );
+
   const pos = React.useMemo(() => (poRaw || []).map(p => ({
     ...p,
     id:          p.poId,
     partnerName: partnerMap[p.partnerId] || ('Partner #' + p.partnerId),
   })), [poRaw, partnerMap]);
 
+  const doSave = async () => {
+    setActionErr('');
+    if (!newPO.partnerId) { setActionErr('Please select a supplier'); return; }
+    try {
+      const body = {
+        poNumber:    newPO.id ? newPO.poNumber : 'PO-' + Date.now(),
+        partnerId:   Number(newPO.partnerId),
+        orderDate:   newPO.orderDate || new Date().toISOString().slice(0, 10),
+        totalAmount: parseFloat(newPO.totalAmount) || 0,
+        status:      newPO.status || 'pending',
+      };
+      if (newPO.id) {
+        await erpApi('/api/purchase-orders/' + newPO.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/purchase-orders', { method: 'POST', body: JSON.stringify(body) });
+      }
+      setModal(false);
+      reload();
+    } catch (e) { setActionErr(e.message); }
+  };
+
+  const doDelete = async () => {
+    if (!sel || !confirm('Are you sure?')) return;
+    try {
+      await erpApi('/api/purchase-orders/' + sel.poId, { method: 'DELETE' });
+      setSel(null);
+      reload();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewPO({
+      id: sel.poId,
+      poNumber: sel.poNumber,
+      partnerId: String(sel.partnerId),
+      orderDate: sel.orderDate,
+      totalAmount: String(sel.totalAmount),
+      status: sel.status,
+    });
+    setModal(true);
+  };
+
+  const openModal = () => {
+    setActionErr('');
+    setNewPO({ partnerId: '', orderDate: new Date().toISOString().slice(0, 10), totalAmount: '' });
+    setModal(true);
+  };
+
   return (
     <div>
       <PageHeader title="Purchase Orders" subtitle="Manage procurement orders">
-        <button className="btn btn--primary" onClick={() => setModal(true)}>+ Create PO</button>
+        <button className="btn btn--primary" onClick={openModal}>+ Create PO</button>
       </PageHeader>
       {error ? <PageError message={error} onRetry={reload}/> : loading ? <PageLoad/> : (
         <div className="page-split">
@@ -63,7 +119,8 @@ function PurchaseOrdersPage() {
             footer={
               <div className="dp__actions">
                 {actionErr && <div style={{ color: '#ef4444', fontSize: 12, width: '100%' }}>{actionErr}</div>}
-                <button className="btn btn--secondary" onClick={() => setSel(null)}>Close</button>
+                <button className="btn btn--secondary btn--sm" onClick={openEdit}>Edit</button>
+                <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
               </div>
             }>
             {sel && <>
@@ -77,13 +134,23 @@ function PurchaseOrdersPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Create Purchase Order" width={500}
-        footer={<><button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={() => setModal(false)}>Close</button></>}>
-        <div style={{ color: '#64748b', fontSize: 14, padding: '12px 0' }}>
-          Purchase order creation requires product and supplier configuration. Use Swagger UI at{' '}
-          <code>http://localhost:8080/swagger-ui.html</code>.
-        </div>
+      <Modal open={modal} onClose={() => setModal(false)} title={newPO.id ? 'Edit PO' : 'Create Purchase Order'} width={500}
+        footer={<>
+          <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
+          <button className="btn btn--primary" onClick={doSave}>{newPO.id ? 'Save Changes' : 'Create PO'}</button>
+        </>}>
+        {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
+        <FormSelect label="Supplier" value={newPO.partnerId}
+          onChange={v => setNewPO(p => ({ ...p, partnerId: v }))} required
+          options={suppliers.map(p => ({ value: String(p.partnerId), label: p.partnerName }))}
+          placeholder="Select supplier"/>
+        <FormRow>
+          <FormInput label="Order Date" type="date" value={newPO.orderDate}
+            onChange={v => setNewPO(p => ({ ...p, orderDate: v }))} required/>
+          <FormInput label="Total Amount" type="number" value={newPO.totalAmount}
+            onChange={v => setNewPO(p => ({ ...p, totalAmount: v }))}
+            placeholder="0.00"/>
+        </FormRow>
       </Modal>
     </div>
   );
@@ -111,34 +178,61 @@ function GoodsReceiptsPage() {
     poRef:  g.poId ? 'PO #' + g.poId : '—',
   })), [grRaw]);
 
-  const recordReceipt = async () => {
+  const doSave = async () => {
     setActionErr('');
     try {
-      await erpApi('/api/goods-receipts', {
-        method: 'POST',
-        body: JSON.stringify({
-          poId:        Number(newGR.poId),
-          receiptDate: new Date().toISOString().slice(0, 10),
-          notes:       newGR.notes,
-        }),
-      });
+      const body = {
+        poId:        Number(newGR.poId),
+        receiptDate: newGR.receiptDate || new Date().toISOString().slice(0, 10),
+        notes:       newGR.notes,
+      };
+      if (newGR.id) {
+        await erpApi('/api/goods-receipts/' + newGR.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/goods-receipts', { method: 'POST', body: JSON.stringify(body) });
+      }
       setModal(false);
       setNewGR({ poId: '', notes: '' });
       reload();
     } catch(e) { setActionErr(e.message); }
   };
 
+  const doDelete = async () => {
+    if (!sel || !confirm('Are you sure?')) return;
+    try {
+      await erpApi('/api/goods-receipts/' + sel.receiptId, { method: 'DELETE' });
+      setSel(null);
+      reload();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewGR({
+      id: sel.receiptId,
+      poId: String(sel.poId),
+      receiptDate: sel.receiptDate,
+      notes: sel.notes,
+    });
+    setModal(true);
+  };
+
   return (
     <div>
       <PageHeader title="Goods Receipts" subtitle="Log inventory received from suppliers">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setModal(true); }}>+ Record Receipt</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewGR({ poId: '', notes: '' }); setModal(true); }}>+ Record Receipt</button>
       </PageHeader>
       {error ? <PageError message={error} onRetry={reload}/> : loading ? <PageLoad/> : (
         <div className="page-split">
           <div className="page-split__main">
             <DataTable columns={GR_COLS} data={receipts} selectedId={sel?.id} onRowClick={setSel} showCheck/>
           </div>
-          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Receipt #' + (sel?.receiptId || '')}>
+          <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Receipt #' + (sel?.receiptId || '')}
+            footer={sel && (
+              <div className="dp__actions">
+                <button className="btn btn--secondary btn--sm" onClick={openEdit}>Edit</button>
+                <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
+              </div>
+            )}>
             {sel && <>
               <DPRow label="Receipt ID"    value={sel.receiptId}/>
               <DPRow label="PO Reference"  value={sel.poRef}/>
@@ -148,10 +242,10 @@ function GoodsReceiptsPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Record Goods Receipt" width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newGR.id ? 'Edit Receipt' : 'Record Goods Receipt'} width={500}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={recordReceipt}>Record</button>
+          <button className="btn btn--primary" onClick={doSave}>{newGR.id ? 'Save Changes' : 'Record'}</button>
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Purchase Order" value={newGR.poId}
@@ -184,33 +278,57 @@ function SupplierBillsPage() {
 
   const partners = (partnersRaw || []).filter(p => (p.type || '').toUpperCase() === 'SUPPLIER' || p.type == null);
 
-  const createBill = async () => {
+  const doSave = async () => {
     setActionErr('');
     try {
       const today = new Date().toISOString().slice(0, 10);
-      await erpApi('/api/supplier-bills', {
-        method: 'POST',
-        body: JSON.stringify({
-          billNumber:  'BILL-' + Date.now(),
-          partnerId:   Number(newBill.partnerId),
-          billDate:    today,
-          dueDate:     newBill.dueDate || today,
-          subtotal:    parseFloat(newBill.totalAmount) || 0,
-          taxAmount:   0,
-          totalAmount: parseFloat(newBill.totalAmount) || 0,
-          status:      'draft',
-        }),
-      });
+      const body = {
+        billNumber:  newBill.id ? newBill.billNumber : 'BILL-' + Date.now(),
+        partnerId:   Number(newBill.partnerId),
+        billDate:    newBill.billDate || today,
+        dueDate:     newBill.dueDate  || today,
+        subtotal:    parseFloat(newBill.totalAmount) || 0,
+        taxAmount:   0,
+        totalAmount: parseFloat(newBill.totalAmount) || 0,
+        status:      newBill.status || 'draft',
+      };
+      if (newBill.id) {
+        await erpApi('/api/supplier-bills/' + newBill.id, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await erpApi('/api/supplier-bills', { method: 'POST', body: JSON.stringify(body) });
+      }
       setModal(false);
       setNewBill({ partnerId: '', totalAmount: '', dueDate: '' });
       reload();
     } catch(e) { setActionErr(e.message); }
   };
 
+  const doDelete = async () => {
+    if (!sel || !confirm('Are you sure?')) return;
+    try {
+      await erpApi('/api/supplier-bills/' + sel.billId, { method: 'DELETE' });
+      setSel(null);
+      reload();
+    } catch(e) { alert(e.message); }
+  };
+
+  const openEdit = () => {
+    setNewBill({
+      id: sel.billId,
+      billNumber: sel.billNumber,
+      partnerId: String(sel.partnerId),
+      billDate: sel.billDate,
+      dueDate: sel.dueDate,
+      totalAmount: String(sel.totalAmount),
+      status: sel.status,
+    });
+    setModal(true);
+  };
+
   return (
     <div>
       <PageHeader title="Supplier Bills" subtitle="Manage accounts payable">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setModal(true); }}>+ Create Bill</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewBill({ partnerId: '', totalAmount: '', dueDate: '' }); setModal(true); }}>+ Create Bill</button>
       </PageHeader>
       {error ? <PageError message={error} onRetry={reload}/> : loading ? <PageLoad/> : (
         <div className="page-split">
@@ -218,9 +336,17 @@ function SupplierBillsPage() {
             <DataTable columns={BILL_COLS} data={bills} selectedId={sel?.id} onRowClick={setSel} showCheck/>
           </div>
           <DetailPanel open={!!sel} onClose={() => setSel(null)} title={'Bill ' + (sel?.billNumber || '')}
-            footer={(sel && ['draft','unpaid','overdue'].includes((sel.status||'').toLowerCase()))
-              ? <div className="dp__actions"><button className="btn btn--primary">Record Payment</button></div>
-              : null}>
+            footer={sel && (
+              <div className="dp__actions" style={{ flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                  <button className="btn btn--secondary btn--sm" style={{ flex: 1 }} onClick={openEdit}>Edit</button>
+                  <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
+                </div>
+                {['draft','unpaid','overdue'].includes((sel.status||'').toLowerCase()) && (
+                  <button className="btn btn--primary btn--sm" style={{ width: '100%' }}>Record Payment</button>
+                )}
+              </div>
+            )}>
             {sel && <>
               <DPRow label="Bill #"    value={sel.billNumber}/>
               <DPRow label="Supplier"  value={sel.partnerName}/>
@@ -235,10 +361,10 @@ function SupplierBillsPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title="Create Supplier Bill" width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newBill.id ? 'Edit Bill' : 'Create Supplier Bill'} width={500}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
-          <button className="btn btn--primary" onClick={createBill}>Create</button>
+          <button className="btn btn--primary" onClick={doSave}>{newBill.id ? 'Save Changes' : 'Create'}</button>
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Supplier" value={newBill.partnerId}

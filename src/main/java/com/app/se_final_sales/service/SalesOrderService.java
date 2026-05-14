@@ -8,6 +8,8 @@ import java.util.List;
 public interface SalesOrderService {
     SalesOrderResponse createOrder(SalesOrderRequest request);
     SalesOrderResponse getOrderById(Long id);
-    List<SalesOrderResponse> getAllOrders();
+    List<SalesOrderResponse> getAllOrders(Long companyId);
     SalesOrderResponse confirmOrder(Long id);
+    SalesOrderResponse updateOrder(Long id, SalesOrderRequest request);
+    void deleteOrder(Long id);
 }

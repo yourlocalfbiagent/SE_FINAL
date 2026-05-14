@@ -42,9 +42,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Check if invoice is now fully paid
         // We'll need a custom query or sum the payments
-        List<Payment> allPayments = paymentRepository.findAll().stream()
-                .filter(p -> p.getInvoice().getInvoiceId().equals(invoice.getInvoiceId()))
-                .collect(Collectors.toList());
+        List<Payment> allPayments = paymentRepository.findByInvoiceInvoiceId(invoice.getInvoiceId());
         
         BigDecimal totalPaid = allPayments.stream()
                 .map(Payment::getAmount)
@@ -63,10 +61,61 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public List<PaymentResponse> getPaymentsByInvoiceId(Long invoiceId) {
-        // This is inefficient but works for now as a POC
-        return paymentRepository.findAll().stream()
-                .filter(p -> p.getInvoice().getInvoiceId().equals(invoiceId))
+        return paymentRepository.findByInvoiceInvoiceId(invoiceId).stream()
                 .map(paymentMapper::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PaymentResponse> getAllPayments(Long companyId) {
+        return paymentRepository.findByInvoicePartnerCompanyId(companyId).stream()
+                .map(paymentMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public PaymentResponse updatePayment(Long id, PaymentRequest request) {
+        Payment existing = paymentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with ID: " + id));
+        
+        existing.setAmount(request.getAmount());
+        existing.setPaymentDate(request.getPaymentDate());
+        existing.setPaymentMethod(request.getPaymentMethod());
+        existing.setReference(request.getReference());
+        
+        Payment saved = paymentRepository.save(existing);
+        recalculateInvoiceStatus(existing.getInvoice().getInvoiceId());
+        return paymentMapper.toResponse(saved);
+    }
+
+    @Override
+    public void deletePayment(Long id) {
+        Payment existing = paymentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with ID: " + id));
+        Long invoiceId = existing.getInvoice().getInvoiceId();
+        paymentRepository.deleteById(id);
+        recalculateInvoiceStatus(invoiceId);
+    }
+
+    private void recalculateInvoiceStatus(Long invoiceId) {
+        SalesInvoice invoice = salesInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with ID: " + invoiceId));
+        
+        List<Payment> allPayments = paymentRepository.findAll().stream()
+                .filter(p -> p.getInvoice().getInvoiceId().equals(invoiceId))
+                .collect(Collectors.toList());
+        
+        BigDecimal totalPaid = allPayments.stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
+            invoice.setStatus("PAID");
+        } else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
+            invoice.setStatus("PARTIALLY_PAID");
+        } else {
+            invoice.setStatus("UNPAID");
+        }
+        salesInvoiceRepository.save(invoice);
     }
 }

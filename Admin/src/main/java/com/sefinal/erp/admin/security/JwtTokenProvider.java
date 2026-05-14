@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtTokenProvider {
@@ -21,12 +23,17 @@ public class JwtTokenProvider {
     private long expirationMs;
 
     public String generateToken(int userId, int companyId, String email, Integer roleId, String roleName) {
+        return generateToken(userId, companyId, email, roleId, roleName, Collections.emptyList());
+    }
+
+    public String generateToken(int userId, int companyId, String email, Integer roleId, String roleName, List<String> permissions) {
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId)
                 .claim("companyId", companyId)
                 .claim("roleId", roleId)
                 .claim("role", roleName)
+                .claim("perms", permissions)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getKey())

@@ -79,8 +79,8 @@ public class SalesReturnServiceImpl implements SalesReturnService {
     }
 
     @Override
-    public List<SalesReturnResponse> getAllReturns() {
-        return salesReturnRepository.findAll().stream()
+    public List<SalesReturnResponse> getAllReturns(Long companyId) {
+        return salesReturnRepository.findByInvoicePartnerCompanyId(companyId).stream()
                 .map(salesReturnMapper::toResponse)
                 .collect(Collectors.toList());
     }
@@ -92,5 +92,49 @@ public class SalesReturnServiceImpl implements SalesReturnService {
         
         salesReturn.setStatus("APPROVED");
         return salesReturnMapper.toResponse(salesReturnRepository.save(salesReturn));
+    }
+
+    @Override
+    public SalesReturnResponse updateReturn(Long id, SalesReturnRequest request) {
+        SalesReturn existing = salesReturnRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sales Return not found with ID: " + id));
+        
+        if (!"PENDING".equals(existing.getStatus())) {
+            throw new IllegalStateException("Only PENDING returns can be updated.");
+        }
+
+        existing.getLines().clear();
+        SalesReturn updatedEntity = salesReturnMapper.toEntity(request);
+        
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (SalesReturnLine line : updatedEntity.getLines()) {
+            Product product = productRepository.findById(line.getProduct().getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + line.getProduct().getProductId()));
+            
+            line.setProduct(product);
+            line.setSalesReturn(existing);
+            BigDecimal lineTotal = line.getUnitPrice().multiply(line.getQuantity());
+            line.setLineTotal(lineTotal);
+            totalAmount = totalAmount.add(lineTotal);
+            existing.getLines().add(line);
+        }
+        
+        existing.setTotalAmount(totalAmount);
+        existing.setReason(request.getReason());
+        existing.setReturnDate(request.getReturnDate());
+        
+        return salesReturnMapper.toResponse(salesReturnRepository.save(existing));
+    }
+
+    @Override
+    public void deleteReturn(Long id) {
+        SalesReturn salesReturn = salesReturnRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sales Return not found with ID: " + id));
+        
+        if (!"PENDING".equals(salesReturn.getStatus())) {
+            throw new IllegalStateException("Only PENDING returns can be deleted.");
+        }
+        
+        salesReturnRepository.delete(salesReturn);
     }
 }
