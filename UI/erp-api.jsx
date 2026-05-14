@@ -4,8 +4,8 @@
 // ERP main module: http://localhost:8080
 // ============================================================
 
-const ERP_BASE   = 'http://localhost:8080';
-const ADMIN_BASE = 'http://localhost:8081';
+const ERP_BASE   = '';
+const ADMIN_BASE = '/admin';
 
 // ---- Auth storage ----
 function getToken()     { return localStorage.getItem('erp_token'); }
