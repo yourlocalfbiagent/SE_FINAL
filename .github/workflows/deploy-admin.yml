@@ -11,7 +11,7 @@ on:
 env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: erp-admin
-  ECS_CLUSTER: erp-cluster
+  ECS_CLUSTER: erp-admin-cluster
   ECS_SERVICE: admin-service
   ECS_TASK_DEFINITION: erp-admin-task
   CONTAINER_NAME: admin-container
