@@ -19,7 +19,7 @@ public class JwtTokenProvider {
     @Value("${app.jwt.secret:erpsystem-default-secret-key-for-dev-only-must-be-32-chars-2024}")
     private String secret;
 
-    @Value("${app.jwt.expiration-ms:86400000}")
+    @Value("${app.jwt.expiration-ms:86400000}") // testing cache layer
     private long expirationMs;
 
     public String generateToken(int userId, int companyId, String email, Integer roleId, String roleName) {

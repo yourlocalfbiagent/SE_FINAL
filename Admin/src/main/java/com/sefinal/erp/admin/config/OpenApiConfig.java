@@ -21,7 +21,9 @@ public class OpenApiConfig {
                         .title("Admin Service API")
                         .description("Authentication, user management, RBAC, and audit for the ERP system")
                         .version("0.1.0"))
-                .servers(List.of(new Server().url("http://localhost:8081").description("Local")))
+                .servers(List.of(
+                        new Server().url("/").description("Current Server")
+                ))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
