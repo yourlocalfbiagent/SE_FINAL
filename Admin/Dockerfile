@@ -20,6 +20,9 @@ WORKDIR /app
 # Copy the built jar file from the builder stage
 COPY --from=builder /app/target/admin.jar app.jar
 
+# Explicitly set the server port so Spring Boot uses 8081 even without application.properties
+ENV SERVER_PORT=8081
+
 # Expose the port the Admin module runs on
 EXPOSE 8081
 
