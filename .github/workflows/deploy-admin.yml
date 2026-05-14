@@ -3,7 +3,7 @@ name: Deploy Admin Module to Amazon ECS
 on:
   push:
     branches:
-      - Dev-Squared
+      - Dev
     paths:
       - 'Admin/**'
       - '.github/workflows/deploy-admin.yml'
