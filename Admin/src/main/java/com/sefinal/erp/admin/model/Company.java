@@ -1,16 +1,12 @@
 package com.sefinal.erp.admin.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "companies")
-@Getter @Setter @NoArgsConstructor
 public class Company {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,4 +30,26 @@ public class Company {
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public Company() {}
+
+    public Integer getCompanyId() { return companyId; }
+    public void setCompanyId(Integer companyId) { this.companyId = companyId; }
+
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+
+    public BigDecimal getTaxDefault() { return taxDefault; }
+    public void setTaxDefault(BigDecimal taxDefault) { this.taxDefault = taxDefault; }
+
+    public String getLocale() { return locale; }
+    public void setLocale(String locale) { this.locale = locale; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { this.isActive = active; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

@@ -1,13 +1,9 @@
 package com.sefinal.erp.admin.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "modules")
-@Getter @Setter @NoArgsConstructor
 public class Module {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,4 +17,18 @@ public class Module {
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
+
+    public Module() {}
+
+    public Integer getModuleId() { return moduleId; }
+    public void setModuleId(Integer moduleId) { this.moduleId = moduleId; }
+
+    public String getModuleName() { return moduleName; }
+    public void setModuleName(String moduleName) { this.moduleName = moduleName; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { this.isActive = active; }
 }
