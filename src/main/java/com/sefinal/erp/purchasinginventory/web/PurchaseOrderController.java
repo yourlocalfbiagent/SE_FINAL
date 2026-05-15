@@ -46,6 +46,7 @@ public class PurchaseOrderController {
         if (purchaseOrder.getLines() != null) {
             BigDecimal total = BigDecimal.ZERO;
             for (var line : purchaseOrder.getLines()) {
+                line.setPurchaseOrder(purchaseOrder);
                 if (line.getQuantityOrdered() == null) line.setQuantityOrdered(BigDecimal.ZERO);
                 if (line.getUnitCost() == null) line.setUnitCost(BigDecimal.ZERO);
                 line.setLineTotal(line.getUnitCost().multiply(line.getQuantityOrdered()));
@@ -73,6 +74,7 @@ public class PurchaseOrderController {
         if (purchaseOrder.getLines() != null) {
             BigDecimal total = BigDecimal.ZERO;
             for (var line : purchaseOrder.getLines()) {
+                line.setPurchaseOrder(purchaseOrder);
                 if (line.getQuantityOrdered() == null) line.setQuantityOrdered(BigDecimal.ZERO);
                 if (line.getUnitCost() == null) line.setUnitCost(BigDecimal.ZERO);
                 line.setLineTotal(line.getUnitCost().multiply(line.getQuantityOrdered()));

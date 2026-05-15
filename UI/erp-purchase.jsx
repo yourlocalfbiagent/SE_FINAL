@@ -63,11 +63,15 @@ function PurchaseOrdersPage() {
     setActionErr('');
     if (!newPO.partnerId) { setActionErr('Please select a supplier'); return; }
     if (!newPO.lines || newPO.lines.length === 0) { setActionErr('Please add at least one line item'); return; }
+    if (newPO.lines.some(l => !l.productId)) { setActionErr('Each line must have a product selected.'); return; }
+    if (newPO.lines.some(l => (parseFloat(l.quantityOrdered) || 0) <= 0)) { setActionErr('Line quantity must be greater than zero.'); return; }
+    if (newPO.lines.some(l => (parseFloat(l.unitCost) || 0) < 0)) { setActionErr('Line cost cannot be negative.'); return; }
     
     try {
       const body = {
         poNumber:    newPO.id ? newPO.poNumber : 'PO-' + Date.now(),
         partnerId:   Number(newPO.partnerId),
+        supplierId:  Number(newPO.partnerId),
         orderDate:   newPO.orderDate || new Date().toISOString().slice(0, 10),
         status:      newPO.status || 'pending',
         lines:       newPO.lines.map(l => ({
@@ -173,7 +177,7 @@ function PurchaseOrdersPage() {
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title={newPO.id ? 'Edit PO' : 'Create Purchase Order'} width={650}
+      <Modal open={modal} onClose={() => setModal(false)} title={newPO.id ? 'Edit PO' : 'Create Purchase Order'} width={760}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
           <button className="btn btn--primary" onClick={doSave}>{newPO.id ? 'Save Changes' : 'Create PO'}</button>
@@ -194,12 +198,12 @@ function PurchaseOrdersPage() {
             <button className="btn btn--secondary btn--sm" onClick={addLine}>+ Add Line</button>
           </div>
           {newPO.lines.map((l, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+            <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'flex-end' }}>
               <div style={{ flex: 2 }}>
                 <FormSelect label={idx === 0 ? "Product" : ""} value={l.productId} onChange={v => updateLine(idx, 'productId', v)}
                   options={products.map(p => ({ value: String(p.productId), label: p.productName }))}/>
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 0.9 }}>
                 <FormInput label={idx === 0 ? "Qty" : ""} type="number" value={l.quantityOrdered} onChange={v => updateLine(idx, 'quantityOrdered', v)}/>
               </div>
               <div style={{ flex: 1 }}>
@@ -208,7 +212,13 @@ function PurchaseOrdersPage() {
               <div style={{ flex: 1 }}>
                 <FormInput label={idx === 0 ? "Total" : ""} type="text" value={((parseFloat(l.quantityOrdered)||0) * (parseFloat(l.unitCost)||0)).toFixed(2)} disabled/>
               </div>
-              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px' }}>✕</button>
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => removeLine(idx)}
+                style={{ color: '#ef4444', padding: '8px', flex: '0 0 auto', alignSelf: 'center' }}
+              >
+                ✕
+              </button>
             </div>
           ))}
         </div>

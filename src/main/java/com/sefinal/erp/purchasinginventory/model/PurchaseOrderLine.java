@@ -1,5 +1,6 @@
 package com.sefinal.erp.purchasinginventory.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -14,8 +15,13 @@ public class PurchaseOrderLine {
     @Column(name = "line_id")
     private Long lineId;
 
-    @Column(name = "po_id", nullable = false)
+    @Column(name = "po_id", nullable = false, insertable = false, updatable = false)
     private Long poId;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "po_id", nullable = false)
+    private PurchaseOrder purchaseOrder;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;

@@ -34,27 +34,14 @@ public class PaymentServiceImpl implements PaymentService {
         if ("PAID".equals(invoice.getStatus())) {
             throw new IllegalStateException("Invoice is already fully paid.");
         }
+        validatePaymentAmount(invoice, request.getAmount(), null);
 
         Payment payment = paymentMapper.toEntity(request);
         payment.setInvoice(invoice);
         
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Check if invoice is now fully paid
-        // We'll need a custom query or sum the payments
-        List<Payment> allPayments = paymentRepository.findByInvoiceInvoiceId(invoice.getInvoiceId());
-        
-        BigDecimal totalPaid = allPayments.stream()
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
-            invoice.setStatus("PAID");
-            salesInvoiceRepository.save(invoice);
-        } else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
-            invoice.setStatus("PARTIALLY_PAID");
-            salesInvoiceRepository.save(invoice);
-        }
+        recalculateInvoiceStatus(invoice.getInvoiceId());
 
         return paymentMapper.toResponse(savedPayment);
     }
@@ -77,6 +64,11 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse updatePayment(Long id, PaymentRequest request) {
         Payment existing = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found with ID: " + id));
+
+        if (!existing.getInvoice().getInvoiceId().equals(request.getInvoiceId())) {
+            throw new IllegalStateException("Updating a payment to a different invoice is not supported.");
+        }
+        validatePaymentAmount(existing.getInvoice(), request.getAmount(), existing.getPaymentId());
         
         existing.setAmount(request.getAmount());
         existing.setPaymentDate(request.getPaymentDate());
@@ -100,14 +92,8 @@ public class PaymentServiceImpl implements PaymentService {
     private void recalculateInvoiceStatus(Long invoiceId) {
         SalesInvoice invoice = salesInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with ID: " + invoiceId));
-        
-        List<Payment> allPayments = paymentRepository.findAll().stream()
-                .filter(p -> p.getInvoice().getInvoiceId().equals(invoiceId))
-                .collect(Collectors.toList());
-        
-        BigDecimal totalPaid = allPayments.stream()
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPaid = calculateTotalPaid(invoiceId, null);
 
         if (totalPaid.compareTo(invoice.getTotalAmount()) >= 0) {
             invoice.setStatus("PAID");
@@ -117,5 +103,31 @@ public class PaymentServiceImpl implements PaymentService {
             invoice.setStatus("UNPAID");
         }
         salesInvoiceRepository.save(invoice);
+    }
+
+    private void validatePaymentAmount(SalesInvoice invoice, BigDecimal amount, Long excludedPaymentId) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Payment amount must be greater than zero.");
+        }
+
+        BigDecimal remainingBalance = invoice.getTotalAmount().subtract(
+                calculateTotalPaid(invoice.getInvoiceId(), excludedPaymentId)
+        );
+
+        if (remainingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Invoice is already fully paid.");
+        }
+        if (amount.compareTo(remainingBalance) > 0) {
+            throw new IllegalStateException(
+                    "Payment amount exceeds remaining balance. Remaining balance: " + remainingBalance.stripTrailingZeros().toPlainString()
+            );
+        }
+    }
+
+    private BigDecimal calculateTotalPaid(Long invoiceId, Long excludedPaymentId) {
+        return paymentRepository.findByInvoiceInvoiceId(invoiceId).stream()
+                .filter(payment -> excludedPaymentId == null || !excludedPaymentId.equals(payment.getPaymentId()))
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

@@ -130,6 +130,20 @@ function SalesOrdersPage() {
     setNewItem(p => ({ ...p, lines: p.lines.filter((_, i) => i !== idx) }));
   };
 
+  const draftTotals = React.useMemo(() => {
+    const subtotal = (newItem.lines || []).reduce((sum, line) => {
+      const qty = parseFloat(line.quantity) || 0;
+      const unitPrice = parseFloat(line.unitPrice) || 0;
+      return sum + (qty * unitPrice);
+    }, 0);
+    const taxAmount = subtotal * 0.10;
+    return {
+      subtotal,
+      taxAmount,
+      total: subtotal + taxAmount,
+    };
+  }, [newItem.lines]);
+
   return (
     <div>
       <PageHeader title="Sales Orders" subtitle="Manage customer orders">
@@ -170,13 +184,13 @@ function SalesOrdersPage() {
               </div>
               <hr className="dp__divider"/>
               <DPRow label="Subtotal" value={fmt$(sel.subtotal)}/>
-              <DPRow label="Tax"      value={fmt$(sel.taxAmount)}/>
+              <DPRow label="Tax (10%)" value={fmt$(sel.taxAmount)}/>
               <DPRow label="Total"    value={fmt$(sel.totalAmount)} bold/>
             </>}
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title={newItem.id ? 'Edit Sales Order' : 'Create Sales Order'} width={650}
+      <Modal open={modal} onClose={() => setModal(false)} title={newItem.id ? 'Edit Sales Order' : 'Create Sales Order'} width={760}
         footer={<><button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
           <button className="btn btn--primary" onClick={doSave}>{newItem.id ? 'Save Changes' : 'Create Order'}</button></>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
@@ -189,20 +203,39 @@ function SalesOrdersPage() {
             <button className="btn btn--secondary btn--sm" onClick={addLine}>+ Add Line</button>
           </div>
           {newItem.lines.map((l, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+            <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'flex-end' }}>
               <div style={{ flex: 2 }}>
                 <FormSelect label={idx === 0 ? "Product" : ""} value={l.productId} onChange={v => updateLine(idx, 'productId', v)}
                   options={products.map(p => ({ value: String(p.productId), label: p.productName }))}/>
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 0.9 }}>
                 <FormInput label={idx === 0 ? "Qty" : ""} type="number" value={l.quantity} onChange={v => updateLine(idx, 'quantity', v)}/>
               </div>
               <div style={{ flex: 1 }}>
-                <FormInput label={idx === 0 ? "Price" : ""} type="number" value={l.unitPrice} onChange={v => updateLine(idx, 'unitPrice', v)}/>
+                <FormInput label={idx === 0 ? "Price (E.T)" : ""} type="number" value={l.unitPrice} onChange={v => updateLine(idx, 'unitPrice', v)}/>
               </div>
-              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px' }}>✕</button>
+              <div style={{ flex: 1 }}>
+                <FormInput
+                  label={idx === 0 ? "Total" : ""}
+                  type="text"
+                  value={((parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0)).toFixed(2)}
+                  disabled
+                />
+              </div>
+              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px', flex: '0 0 auto', alignSelf: 'center' }}>✕</button>
             </div>
           ))}
+          <div style={{ marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569' }}>
+              <span>Subtotal</span><span>{fmt$(draftTotals.subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569', marginTop: 4 }}>
+              <span>Tax (10%)</span><span>{fmt$(draftTotals.taxAmount)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginTop: 6 }}>
+              <span>Total</span><span>{fmt$(draftTotals.total)}</span>
+            </div>
+          </div>
         </div>
       </Modal>
     </div>
@@ -335,12 +368,54 @@ function PaymentsPage() {
   const invoices = invoicesRaw || [];
   const payments = paymentsRaw || [];
 
+  const paidByInvoice = React.useMemo(() => {
+    const totals = {};
+    payments.forEach(p => {
+      const key = String(p.invoiceId || '');
+      if (!key) return;
+      totals[key] = (totals[key] || 0) + (parseFloat(p.amount) || 0);
+    });
+    return totals;
+  }, [payments]);
+
+  const getRemainingBalance = React.useCallback((invoiceId, excludePaymentId = null) => {
+    if (!invoiceId) return 0;
+    const inv = invoices.find(i => String(i.invoiceId) === String(invoiceId));
+    if (!inv) return 0;
+    const invoiceTotal = parseFloat(inv.totalAmount) || 0;
+    const paid = payments
+      .filter(p => String(p.invoiceId) === String(invoiceId))
+      .filter(p => !excludePaymentId || String(p.paymentId) !== String(excludePaymentId))
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    return Math.max(0, invoiceTotal - paid);
+  }, [invoices, payments]);
+
+  const selectedInvoice = React.useMemo(
+    () => invoices.find(i => String(i.invoiceId) === String(newPay.invoiceId)),
+    [invoices, newPay.invoiceId]
+  );
+  const selectedRemaining = selectedInvoice ? getRemainingBalance(newPay.invoiceId, newPay.id) : 0;
+
   const doSave = async () => {
     setActionErr('');
     try {
+      if (!newPay.invoiceId) {
+        setActionErr('Please select an invoice.');
+        return;
+      }
+      const amount = parseFloat(newPay.amount);
+      if (Number.isNaN(amount) || amount <= 0) {
+        setActionErr('Payment amount must be greater than zero.');
+        return;
+      }
+      const remaining = getRemainingBalance(newPay.invoiceId, newPay.id);
+      if (amount - remaining > 1e-9) {
+        setActionErr('Payment exceeds remaining balance of ' + fmt$(remaining) + '.');
+        return;
+      }
       const body = {
         invoiceId:     Number(newPay.invoiceId),
-        amount:        parseFloat(newPay.amount),
+        amount:        amount,
         paymentMethod: newPay.paymentMethod,
         paymentDate:   newPay.paymentDate || new Date().toISOString().slice(0, 10),
       };
@@ -414,8 +489,26 @@ function PaymentsPage() {
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Invoice" value={newPay.invoiceId}
-          onChange={v => setNewPay(p => ({...p, invoiceId: v}))} required
-          options={invoices.map(i => ({ value: String(i.invoiceId), label: i.invoiceNumber + ' — ' + fmt$(i.totalAmount) }))}
+          onChange={v => setNewPay(p => {
+            const next = { ...p, invoiceId: v };
+            if (!p.id) {
+              const suggested = getRemainingBalance(v, null);
+              next.amount = suggested > 0 ? suggested.toFixed(2) : '';
+            }
+            return next;
+          })} required disabled={!!newPay.id}
+          options={invoices
+            .filter(i => newPay.id || getRemainingBalance(i.invoiceId, null) > 0)
+            .map(i => {
+            const key = String(i.invoiceId);
+            const invoiceTotal = parseFloat(i.totalAmount) || 0;
+            const paid = paidByInvoice[key] || 0;
+            const remaining = Math.max(0, invoiceTotal - paid);
+            return {
+              value: key,
+              label: i.invoiceNumber + ' — Remaining ' + fmt$(remaining),
+            };
+          })}
           placeholder="Select invoice"/>
         <FormRow>
           <FormInput label="Amount" type="number" value={newPay.amount}
@@ -423,6 +516,11 @@ function PaymentsPage() {
           <FormInput label="Date" type="date" value={newPay.paymentDate || new Date().toISOString().slice(0, 10)}
             onChange={v => setNewPay(p => ({...p, paymentDate: v}))} required/>
         </FormRow>
+        {selectedInvoice && (
+          <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
+            Suggested amount (remaining): <strong>{fmt$(selectedRemaining)}</strong>
+          </div>
+        )}
         <FormSelect label="Payment Method" value={newPay.paymentMethod}
           onChange={v => setNewPay(p => ({...p, paymentMethod: v}))} required
           options={['Bank Transfer', 'Credit Card', 'Wire Transfer', 'Check', 'Cash']}/>
@@ -610,5 +708,4 @@ function SalesReturnsPage() {
   );
 }
 
-Obj
-
+Object.assign(window, { SalesOrdersPage, SalesInvoicesPage, PaymentsPage, SalesReturnsPage });

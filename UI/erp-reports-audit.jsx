@@ -74,7 +74,6 @@ function ExportModal({ open, onClose }) {
 
 // ===== SALES SUMMARY PAGE =====
 function SalesSummaryPage() {
-  const [exportModal, setExportModal] = useState(false);
   const { data: ordersRaw, loading, error, reload } = useLoad(() => erpApi('/api/sales-orders'));
   const orders = ordersRaw || [];
 
@@ -98,11 +97,40 @@ function SalesSummaryPage() {
     return { periods, chartData };
   }, [orders]);
 
+  const exportSalesCsv = React.useCallback(() => {
+    const escapeCsv = (value) => {
+      const s = String(value ?? '');
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const rows = [
+      ['Period', 'Orders', 'Gross Revenue', 'Tax', 'Net Revenue'],
+      ...periods.map(p => [
+        p.period,
+        p.orders,
+        Number(p.gross || 0).toFixed(2),
+        Number(p.tax || 0).toFixed(2),
+        Number(p.net || 0).toFixed(2),
+      ]),
+    ];
+    const csv = rows.map(r => r.map(escapeCsv).join(',')).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'sales-summary.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }, [periods]);
+
   return (
     <div>
       <PageHeader title="Sales Summary" subtitle="Revenue trends and aggregate metrics">
-        <button className="btn btn--secondary" onClick={() => setExportModal(true)}>
-          <NavIcon type="export"/> Export
+        <button className="btn btn--secondary" onClick={exportSalesCsv}>
+          <NavIcon type="export"/> Export CSV
         </button>
       </PageHeader>
 
@@ -121,7 +149,6 @@ function SalesSummaryPage() {
         </>
       )}
 
-      <ExportModal open={exportModal} onClose={() => setExportModal(false)}/>
     </div>
   );
 }

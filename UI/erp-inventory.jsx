@@ -14,6 +14,7 @@ const STK_COLS = [
 const MOV_COLS = [
   { key: 'movementId',  label: 'ID',         width: '80px' },
   { key: 'productName', label: 'Product' },
+  { key: 'locationName', label: 'Location' },
   { key: 'direction',   label: 'Type',       type: 'badge', width: '80px' },
   { key: 'qty',         label: 'Quantity',   width: '90px' },
   { key: 'reasonCode',  label: 'Reason' },
@@ -184,10 +185,11 @@ function StockMovementsPage() {
   const [sel, setSel]     = useState(null);
   const [modal, setModal] = useState(false);
   const [actionErr, setActionErr] = useState('');
-  const [newMov, setNewMov] = useState({ productId: '', quantityChange: '', reasonCode: '' });
+  const [newMov, setNewMov] = useState({ productId: '', locationId: '', quantityChange: '', reasonCode: '' });
 
   const { data: movsRaw, loading: mL, error: mE, reload: mR } = useLoad(() => erpApi('/api/inventory/stock-movements'));
   const { data: prodsRaw } = useLoad(() => erpApi('/api/products'));
+  const { data: locsRaw } = useLoad(() => erpApi('/api/inventory-locations'));
 
   const prodMap = React.useMemo(() => {
     const m = {};
@@ -195,19 +197,42 @@ function StockMovementsPage() {
     return m;
   }, [prodsRaw]);
 
+  const locMap = React.useMemo(() => {
+    const m = {};
+    (locsRaw || []).forEach(l => { m[l.locationId] = l.locationName; });
+    return m;
+  }, [locsRaw]);
+
   const movements = React.useMemo(() => (movsRaw || []).map(m => ({
     ...m,
     id:          m.movementId,
     productName: prodMap[m.productId] || ('Product #' + m.productId),
+    locationName: m.locationId ? (locMap[m.locationId] || ('Loc #' + m.locationId)) : '—',
     direction:   Number(m.quantityChange) >= 0 ? 'IN' : 'OUT',
     qty:         Math.abs(Number(m.quantityChange || 0)),
-  })), [movsRaw, prodMap]);
+  })), [movsRaw, prodMap, locMap]);
+
+  const locationOptions = React.useMemo(() => {
+    const selectedProductId = newMov.productId ? Number(newMov.productId) : null;
+    const filtered = selectedProductId
+      ? (locsRaw || []).filter(l => l.productId === selectedProductId)
+      : (locsRaw || []);
+    return filtered.map(l => ({
+      value: String(l.locationId),
+      label: l.locationName + ' (On Hand: ' + Number(l.quantityOnHand || 0) + ')',
+    }));
+  }, [locsRaw, newMov.productId]);
 
   const doSave = async () => {
     setActionErr('');
     try {
+      if (!newMov.productId) {
+        setActionErr('Please select a product.');
+        return;
+      }
       const body = {
         productId:      Number(newMov.productId),
+        locationId:     newMov.locationId ? Number(newMov.locationId) : null,
         quantityChange: parseFloat(newMov.quantityChange) || 0,
         reasonCode:     newMov.reasonCode || 'MANUAL',
       };
@@ -217,7 +242,7 @@ function StockMovementsPage() {
         await erpApi('/api/inventory/stock-movements', { method: 'POST', body: JSON.stringify(body) });
       }
       setModal(false);
-      setNewMov({ productId: '', quantityChange: '', reasonCode: '' });
+      setNewMov({ productId: '', locationId: '', quantityChange: '', reasonCode: '' });
       mR();
     } catch(e) { setActionErr(e.message); }
   };
@@ -235,6 +260,7 @@ function StockMovementsPage() {
     setNewMov({
       id: sel.movementId,
       productId: String(sel.productId),
+      locationId: sel.locationId ? String(sel.locationId) : '',
       quantityChange: String(sel.quantityChange),
       reasonCode: sel.reasonCode,
     });
@@ -244,7 +270,7 @@ function StockMovementsPage() {
   return (
     <div>
       <PageHeader title="Stock Movements" subtitle="Log of all inventory changes">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewMov({ productId: '', quantityChange: '', reasonCode: '' }); setModal(true); }}>+ Record Movement</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewMov({ productId: '', locationId: '', quantityChange: '', reasonCode: '' }); setModal(true); }}>+ Record Movement</button>
       </PageHeader>
       {mE ? <PageError message={mE} onRetry={mR}/> : mL ? <PageLoad/> : (
         <div className="page-split">
@@ -261,6 +287,7 @@ function StockMovementsPage() {
             {sel && <>
               <DPRow label="Movement ID"  value={sel.movementId}/>
               <DPRow label="Product"      value={sel.productName}/>
+              <DPRow label="Location"     value={sel.locationName}/>
               <DPRow label="Type"         value={<Badge status={sel.direction}/>}/>
               <DPRow label="Qty Change"   value={sel.quantityChange} bold/>
               <DPRow label="Reason"       value={sel.reasonCode}/>
@@ -278,9 +305,16 @@ function StockMovementsPage() {
         </>}>
         {actionErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 8 }}>{actionErr}</div>}
         <FormSelect label="Product" value={newMov.productId}
-          onChange={v => setNewMov(p => ({...p, productId: v}))} required
+          onChange={v => setNewMov(p => ({...p, productId: v, locationId: ''}))} required
           options={(prodsRaw || []).map(p => ({ value: String(p.productId), label: p.productName + ' (' + p.sku + ')' }))}
           placeholder="Select product"/>
+        <FormSelect
+          label="Location"
+          value={newMov.locationId}
+          onChange={v => setNewMov(p => ({ ...p, locationId: v }))}
+          options={locationOptions}
+          placeholder="Select inventory location"
+        />
         <FormRow>
           <FormInput label="Quantity Change" type="number" value={newMov.quantityChange}
             onChange={v => setNewMov(p => ({...p, quantityChange: v}))} required

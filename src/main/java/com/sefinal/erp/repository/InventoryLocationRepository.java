@@ -11,4 +11,5 @@ public interface InventoryLocationRepository extends JpaRepository<InventoryLoca
     List<InventoryLocation> findByWarehouseId(Long warehouseId);
     List<InventoryLocation> findByProductId(Long productId);
     List<InventoryLocation> findByCompanyId(Long companyId);
+    List<InventoryLocation> findByCompanyIdAndProductId(Long companyId, Long productId);
 }

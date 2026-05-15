@@ -1,5 +1,7 @@
 package com.sefinal.erp.purchasinginventory.web;
 
+import com.sefinal.erp.entity.InventoryLocation;
+import com.sefinal.erp.repository.InventoryLocationRepository;
 import com.sefinal.erp.purchasinginventory.dao.InventoryCountDao;
 import com.sefinal.erp.purchasinginventory.dao.StockMovementDao;
 import com.sefinal.erp.purchasinginventory.model.InventoryCount;
@@ -10,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,14 +21,19 @@ import java.util.List;
 @RequestMapping("/api/inventory")
 @Tag(name = "Inventory", description = "Inventory counts and stock movements")
 @PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.read')")
+@Transactional
 public class InventoryController {
 
     private final InventoryCountDao inventoryCountDao;
     private final StockMovementDao stockMovementDao;
+    private final InventoryLocationRepository inventoryLocationRepository;
 
-    public InventoryController(InventoryCountDao inventoryCountDao, StockMovementDao stockMovementDao) {
+    public InventoryController(InventoryCountDao inventoryCountDao,
+                               StockMovementDao stockMovementDao,
+                               InventoryLocationRepository inventoryLocationRepository) {
         this.inventoryCountDao = inventoryCountDao;
         this.stockMovementDao = stockMovementDao;
+        this.inventoryLocationRepository = inventoryLocationRepository;
     }
 
     @GetMapping("/counts")
@@ -47,6 +55,7 @@ public class InventoryController {
         inventoryCount.setCompanyId(SecurityUtils.getCompanyId());
         if (inventoryCount.getLines() != null) {
             for (var line : inventoryCount.getLines()) {
+                line.setInventoryCount(inventoryCount);
                 if (line.getSystemQuantity() == null) line.setSystemQuantity(BigDecimal.ZERO);
                 if (line.getCountedQuantity() == null) line.setCountedQuantity(BigDecimal.ZERO);
                 line.setVarianceQuantity(line.getCountedQuantity().subtract(line.getSystemQuantity()));
@@ -64,6 +73,7 @@ public class InventoryController {
         inventoryCount.setCompanyId(SecurityUtils.getCompanyId());
         if (inventoryCount.getLines() != null) {
             for (var line : inventoryCount.getLines()) {
+                line.setInventoryCount(inventoryCount);
                 if (line.getSystemQuantity() == null) line.setSystemQuantity(BigDecimal.ZERO);
                 if (line.getCountedQuantity() == null) line.setCountedQuantity(BigDecimal.ZERO);
                 line.setVarianceQuantity(line.getCountedQuantity().subtract(line.getSystemQuantity()));
@@ -86,33 +96,117 @@ public class InventoryController {
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.create')")
     public StockMovement createStockMovement(@RequestBody StockMovement stockMovement) {
         stockMovement.setCompanyId(SecurityUtils.getCompanyId());
-        if (stockMovement.getMovementDate() == null) stockMovement.setMovementDate(java.time.LocalDateTime.now());
-        if (stockMovement.getMovementType() == null || stockMovement.getMovementType().isBlank()) {
-            BigDecimal qc = stockMovement.getQuantityChange();
-            stockMovement.setMovementType(qc != null && qc.compareTo(BigDecimal.ZERO) >= 0 ? "IN" : "OUT");
-        }
-        if (stockMovement.getQuantity() == null)
-            stockMovement.setQuantity(stockMovement.getQuantityChange() != null
-                ? stockMovement.getQuantityChange().abs() : BigDecimal.ZERO);
-        return stockMovementDao.save(stockMovement);
+        normalizeStockMovement(stockMovement);
+        StockMovement saved = stockMovementDao.save(stockMovement);
+        applyStockDelta(saved.getCompanyId(), saved.getProductId(), saved.getLocationId(), saved.getQuantityChange());
+        return saved;
     }
 
     @PutMapping("/stock-movements/{id}")
     @Operation(summary = "Update a stock movement")
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.update')")
     public ResponseEntity<StockMovement> updateStockMovement(@PathVariable Long id, @RequestBody StockMovement stockMovement) {
-        if (!stockMovementDao.existsById(id)) return ResponseEntity.notFound().build();
+        StockMovement existing = stockMovementDao.findById(id).orElse(null);
+        if (existing == null) return ResponseEntity.notFound().build();
+        Long companyId = SecurityUtils.getCompanyId();
+        if (existing.getCompanyId() != null && !existing.getCompanyId().equals(companyId)) {
+            return ResponseEntity.notFound().build();
+        }
         stockMovement.setMovementId(id);
-        stockMovement.setCompanyId(SecurityUtils.getCompanyId());
-        return ResponseEntity.ok(stockMovementDao.save(stockMovement));
+        stockMovement.setCompanyId(companyId);
+        normalizeStockMovement(stockMovement);
+        StockMovement saved = stockMovementDao.save(stockMovement);
+
+        applyStockDelta(
+                existing.getCompanyId(),
+                existing.getProductId(),
+                existing.getLocationId(),
+                safe(existing.getQuantityChange()).negate()
+        );
+        applyStockDelta(
+                saved.getCompanyId(),
+                saved.getProductId(),
+                saved.getLocationId(),
+                saved.getQuantityChange()
+        );
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/stock-movements/{id}")
     @Operation(summary = "Delete a stock movement")
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.delete')")
     public ResponseEntity<Void> deleteStockMovement(@PathVariable Long id) {
-        if (!stockMovementDao.existsById(id)) return ResponseEntity.notFound().build();
+        StockMovement existing = stockMovementDao.findById(id).orElse(null);
+        if (existing == null) return ResponseEntity.notFound().build();
+        Long companyId = SecurityUtils.getCompanyId();
+        if (existing.getCompanyId() != null && !existing.getCompanyId().equals(companyId)) {
+            return ResponseEntity.notFound().build();
+        }
         stockMovementDao.deleteById(id);
+        applyStockDelta(
+                existing.getCompanyId(),
+                existing.getProductId(),
+                existing.getLocationId(),
+                safe(existing.getQuantityChange()).negate()
+        );
         return ResponseEntity.noContent().build();
+    }
+
+    private void normalizeStockMovement(StockMovement stockMovement) {
+        if (stockMovement.getMovementDate() == null) {
+            stockMovement.setMovementDate(java.time.LocalDateTime.now());
+        }
+        if (stockMovement.getReasonCode() == null || stockMovement.getReasonCode().isBlank()) {
+            stockMovement.setReasonCode("MANUAL");
+        }
+        if (stockMovement.getQuantityChange() == null) {
+            BigDecimal quantity = safe(stockMovement.getQuantity());
+            if ("OUT".equalsIgnoreCase(stockMovement.getMovementType())) {
+                stockMovement.setQuantityChange(quantity.negate());
+            } else {
+                stockMovement.setQuantityChange(quantity);
+            }
+        }
+        if (stockMovement.getMovementType() == null || stockMovement.getMovementType().isBlank()) {
+            stockMovement.setMovementType(
+                    stockMovement.getQuantityChange().compareTo(BigDecimal.ZERO) >= 0 ? "IN" : "OUT"
+            );
+        }
+        if (stockMovement.getQuantity() == null) {
+            stockMovement.setQuantity(stockMovement.getQuantityChange().abs());
+        }
+    }
+
+    private void applyStockDelta(Long companyId, Long productId, Long locationId, BigDecimal quantityChange) {
+        BigDecimal delta = safe(quantityChange);
+        if (delta.compareTo(BigDecimal.ZERO) == 0) return;
+
+        InventoryLocation location = resolveInventoryLocation(companyId, productId, locationId);
+        BigDecimal updatedOnHand = safe(location.getQuantityOnHand()).add(delta);
+
+        location.setQuantityOnHand(updatedOnHand);
+        location.setQuantityAvailable(updatedOnHand.subtract(safe(location.getQuantityReserved())));
+        inventoryLocationRepository.save(location);
+    }
+
+    private InventoryLocation resolveInventoryLocation(Long companyId, Long productId, Long locationId) {
+        if (locationId != null) {
+            InventoryLocation location = inventoryLocationRepository.findById(locationId)
+                    .orElseThrow(() -> new IllegalStateException("Inventory location not found: " + locationId));
+            if (location.getCompanyId() != null && !location.getCompanyId().equals(companyId)) {
+                throw new IllegalStateException("Inventory location does not belong to the current company.");
+            }
+            return location;
+        }
+
+        List<InventoryLocation> productLocations = inventoryLocationRepository.findByCompanyIdAndProductId(companyId, productId);
+        if (productLocations.isEmpty()) {
+            throw new IllegalStateException("No inventory location found for product ID: " + productId);
+        }
+        return productLocations.get(0);
+    }
+
+    private BigDecimal safe(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }
