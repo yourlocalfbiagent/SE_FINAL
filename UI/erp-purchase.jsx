@@ -77,7 +77,8 @@ function PurchaseOrdersPage() {
         lines:       newPO.lines.map(l => ({
           productId: Number(l.productId),
           quantityOrdered: parseFloat(l.quantityOrdered),
-          unitCost: parseFloat(l.unitCost)
+          unitCost: parseFloat(l.unitCost),
+          unitPrice: parseFloat(l.unitCost)
         }))
       };
       if (newPO.id) {
@@ -109,7 +110,7 @@ function PurchaseOrdersPage() {
       lines: (sel.lines || []).map(l => ({
         productId: String(l.productId),
         quantityOrdered: String(l.quantityOrdered),
-        unitCost: String(l.unitCost)
+        unitCost: String(l.unitCost ?? l.unitPrice ?? 0)
       }))
     });
     setModal(true);

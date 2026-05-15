@@ -47,8 +47,15 @@ public class PurchaseOrderController {
             BigDecimal total = BigDecimal.ZERO;
             for (var line : purchaseOrder.getLines()) {
                 line.setPurchaseOrder(purchaseOrder);
-                if (line.getQuantityOrdered() == null) line.setQuantityOrdered(BigDecimal.ZERO);
-                if (line.getUnitCost() == null) line.setUnitCost(BigDecimal.ZERO);
+                if (line.getQuantityOrdered() == null) {
+                    line.setQuantityOrdered(BigDecimal.ZERO);
+                }
+                if (line.getUnitCost() == null) {
+                    line.setUnitCost(line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
+                }
+                if (line.getUnitPrice() == null) {
+                    line.setUnitPrice(line.getUnitCost());
+                }
                 line.setLineTotal(line.getUnitCost().multiply(line.getQuantityOrdered()));
                 total = total.add(line.getLineTotal());
             }
@@ -75,8 +82,15 @@ public class PurchaseOrderController {
             BigDecimal total = BigDecimal.ZERO;
             for (var line : purchaseOrder.getLines()) {
                 line.setPurchaseOrder(purchaseOrder);
-                if (line.getQuantityOrdered() == null) line.setQuantityOrdered(BigDecimal.ZERO);
-                if (line.getUnitCost() == null) line.setUnitCost(BigDecimal.ZERO);
+                if (line.getQuantityOrdered() == null) {
+                    line.setQuantityOrdered(BigDecimal.ZERO);
+                }
+                if (line.getUnitCost() == null) {
+                    line.setUnitCost(line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
+                }
+                if (line.getUnitPrice() == null) {
+                    line.setUnitPrice(line.getUnitCost());
+                }
                 line.setLineTotal(line.getUnitCost().multiply(line.getQuantityOrdered()));
                 total = total.add(line.getLineTotal());
             }
