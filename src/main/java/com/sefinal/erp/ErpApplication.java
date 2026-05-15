@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories(basePackages = {"com.sefinal.erp", "com.app.se_final_sales"})
 @EntityScan(basePackages = {"com.sefinal.erp", "com.app.se_final_sales"})
 public class ErpApplication {
+    // Trigger CI/CD Pipeline Test
     public static void main(String[] args) {
         SpringApplication.run(ErpApplication.class, args);
     }
