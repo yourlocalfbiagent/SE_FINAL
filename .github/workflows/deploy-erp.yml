@@ -15,7 +15,7 @@ env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: erp-ecr
   ECS_CLUSTER: erp-cluster
-  ECS_SERVICE: erp-main-service
+  ECS_SERVICE: erp-main-task-service-i8r579c9
   ECS_TASK_DEFINITION: erp-main-task
   CONTAINER_NAME: erp-main-container
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
