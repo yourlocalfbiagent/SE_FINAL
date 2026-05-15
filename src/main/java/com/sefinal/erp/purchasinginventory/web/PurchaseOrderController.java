@@ -41,7 +41,7 @@ public class PurchaseOrderController {
         // supplier_id mirrors partner_id — both columns are NOT NULL in the DB
         if (purchaseOrder.getSupplierId() == null) purchaseOrder.setSupplierId(purchaseOrder.getPartnerId());
         if (purchaseOrder.getCreatedAt() == null) purchaseOrder.setCreatedAt(LocalDateTime.now());
-        if (purchaseOrder.getStatus() == null || purchaseOrder.getStatus().isBlank()) purchaseOrder.getStatus("pending");
+        if (purchaseOrder.getStatus() == null || purchaseOrder.getStatus().isBlank()) purchaseOrder.setStatus("pending");
         
         if (purchaseOrder.getLines() != null) {
             BigDecimal total = BigDecimal.ZERO;
