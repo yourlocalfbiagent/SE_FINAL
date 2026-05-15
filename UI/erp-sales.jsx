@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // ERP System — Sales Pages (Orders, Invoices, Payments, Returns)
 // All data from ERP main module at http://localhost:8080
 // ============================================================
@@ -164,7 +164,7 @@ function SalesOrdersPage() {
                 {(sel.lines || []).map((l, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
                     <span>{l.productName} x {l.quantity}</span>
-                    <span>{fmt$(l.totalPrice)}</span>
+                    <span>{fmt$(l.lineTotal || (l.quantity * l.unitPrice))}</span>
                   </div>
                 ))}
               </div>
@@ -436,21 +436,30 @@ function SalesReturnsPage() {
   const [sel, setSel]     = useState(null);
   const [modal, setModal] = useState(false);
   const [actionErr, setActionErr] = useState('');
-  const [newRet, setNewRet] = useState({ invoiceId: '', reason: '' });
+  const [newRet, setNewRet] = useState({ invoiceId: '', reason: '', lines: [] });
 
   const { data: returnsRaw, loading: retL, error: retE, reload: retR } = useLoad(() => erpApi('/api/sales-returns'));
   const { data: invoicesRaw } = useLoad(() => erpApi('/api/sales-invoices'));
+  const { data: prodsRaw } = useLoad(() => erpApi('/api/products'));
   const returns  = returnsRaw  || [];
   const invoices = invoicesRaw || [];
+  const products = prodsRaw || [];
 
   const doSave = async () => {
     setActionErr('');
+    if (!newRet.lines || newRet.lines.length === 0) { setActionErr('Please add at least one line item'); return; }
     try {
       const body = {
         invoiceId:   Number(newRet.invoiceId),
+        processedById: Number(getUserId()) || 1,
         reason:      newRet.reason,
         returnDate:  newRet.returnDate || new Date().toISOString().slice(0, 10),
-        status:      newRet.status || 'PENDING'
+        status:      newRet.status || 'PENDING',
+        lines:       newRet.lines.map(l => ({
+          productId: Number(l.productId),
+          quantity:  parseFloat(l.quantity),
+          unitPrice: parseFloat(l.unitPrice)
+        }))
       };
       if (newRet.id) {
         await erpApi('/api/sales-returns/' + newRet.id, { method: 'PUT', body: JSON.stringify(body) });
@@ -458,7 +467,7 @@ function SalesReturnsPage() {
         await erpApi('/api/sales-returns', { method: 'POST', body: JSON.stringify(body) });
       }
       setModal(false);
-      setNewRet({ invoiceId: '', reason: '' });
+      setNewRet({ invoiceId: '', reason: '', lines: [] });
       retR();
     } catch(e) { setActionErr(e.message); }
   };
@@ -487,15 +496,34 @@ function SalesReturnsPage() {
       invoiceId: String(sel.invoiceId),
       reason: sel.reason,
       returnDate: sel.returnDate,
-      status: sel.status
+      status: sel.status,
+      lines: (sel.lines || []).map(l => ({
+        productId: String(l.productId),
+        quantity: l.quantity,
+        unitPrice: l.unitPrice
+      }))
     });
     setModal(true);
   };
 
+  const addLine = () => setNewRet(p => ({ ...p, lines: [...p.lines, { productId: '', quantity: 1, unitPrice: 0 }] }));
+  
+  const updateLine = (idx, k, v) => {
+    const lines = [...newRet.lines];
+    lines[idx][k] = v;
+    if (k === 'productId') {
+      const prod = products.find(p => String(p.productId) === v);
+      if (prod) lines[idx].unitPrice = prod.sellingPrice;
+    }
+    setNewRet(p => ({ ...p, lines }));
+  };
+
+  const removeLine = (idx) => setNewRet(p => ({ ...p, lines: p.lines.filter((_, i) => i !== idx) }));
+
   return (
     <div>
       <PageHeader title="Sales Returns" subtitle="Process returned merchandise">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewRet({ invoiceId: '', reason: '' }); setModal(true); }}>+ Process Return</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewRet({ invoiceId: '', reason: '', lines: [] }); setModal(true); }}>+ Process Return</button>
       </PageHeader>
       {retE ? <PageError message={retE} onRetry={retR}/> : retL ? <PageLoad/> : (
         <div className="page-split">
@@ -523,13 +551,22 @@ function SalesReturnsPage() {
               <DPRow label="Status"    value={<Badge status={sel.status}/>}/>
               <DPRow label="Date"      value={fmtDate(sel.returnDate)}/>
               <DPRow label="Reason"    value={sel.reason}/>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Return Lines</div>
+                {(sel.lines || []).map((l, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <span>{l.productName} x {l.quantity}</span>
+                    <span>{fmt$(l.lineTotal || (l.quantity * l.unitPrice))}</span>
+                  </div>
+                ))}
+              </div>
               <hr className="dp__divider"/>
               <DPRow label="Total"     value={fmt$(sel.totalAmount)} bold/>
             </>}
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title={newRet.id ? 'Edit Return' : 'Process Return'} width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newRet.id ? 'Edit Return' : 'Process Return'} width={650}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
           <button className="btn btn--primary" onClick={doSave}>{newRet.id ? 'Save Changes' : 'Submit'}</button>
@@ -543,9 +580,35 @@ function SalesReturnsPage() {
           onChange={v => setNewRet(p => ({...p, returnDate: v}))} required/>
         <FormInput label="Reason for Return" value={newRet.reason}
           onChange={v => setNewRet(p => ({...p, reason: v}))} required placeholder="Describe the reason"/>
+        
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Return Lines</span>
+            <button className="btn btn--secondary btn--sm" onClick={addLine}>+ Add Line</button>
+          </div>
+          {newRet.lines.map((l, idx) => {
+            const selectedInv = invoices.find(i => String(i.invoiceId) === newRet.invoiceId);
+            const invProducts = selectedInv && selectedInv.lines ? selectedInv.lines.map(il => ({ value: String(il.productId), label: il.productName })) : products.map(p => ({ value: String(p.productId), label: p.productName }));
+            return (
+            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 2 }}>
+                <FormSelect label={idx === 0 ? "Product" : ""} value={l.productId} onChange={v => updateLine(idx, 'productId', v)}
+                  options={invProducts} placeholder="Select product"/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Qty" : ""} type="number" value={l.quantity} onChange={v => updateLine(idx, 'quantity', v)}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Price" : ""} type="number" value={l.unitPrice} onChange={v => updateLine(idx, 'unitPrice', v)}/>
+              </div>
+              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px' }}>✕</button>
+            </div>
+          )})}
+        </div>
       </Modal>
     </div>
   );
 }
 
-Object.assign(window, { SalesOrdersPage, SalesInvoicesPage, PaymentsPage, SalesReturnsPage });
+Obj
+

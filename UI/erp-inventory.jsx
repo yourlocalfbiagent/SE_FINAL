@@ -298,16 +298,23 @@ function InventoryCountsPage() {
   const [sel, setSel]     = useState(null);
   const [modal, setModal] = useState(false);
   const [actionErr, setActionErr] = useState('');
-  const [newCnt, setNewCnt] = useState({ warehouseId: '', countDate: '' });
+  const [newCnt, setNewCnt] = useState({ warehouseId: '', countDate: '', lines: [] });
 
   const { data: cntsRaw, loading: cL, error: cE, reload: cR } = useLoad(() => erpApi('/api/inventory/counts'));
   const { data: whsRaw } = useLoad(() => erpApi('/api/warehouses'));
+  const { data: prodsRaw } = useLoad(() => erpApi('/api/products'));
 
   const whMap = React.useMemo(() => {
     const m = {};
     (whsRaw || []).forEach(w => { m[w.warehouseId] = w.warehouseName; });
     return m;
   }, [whsRaw]);
+
+  const prodMap = React.useMemo(() => {
+    const m = {};
+    (prodsRaw || []).forEach(p => { m[p.productId] = p.productName; });
+    return m;
+  }, [prodsRaw]);
 
   const counts = React.useMemo(() => (cntsRaw || []).map(c => ({
     ...c,
@@ -316,6 +323,7 @@ function InventoryCountsPage() {
   })), [cntsRaw, whMap]);
 
   const warehouses = whsRaw || [];
+  const products = prodsRaw || [];
 
   const doSave = async () => {
     setActionErr('');
@@ -325,6 +333,11 @@ function InventoryCountsPage() {
         warehouseId:  newCnt.warehouseId ? Number(newCnt.warehouseId) : null,
         countDate:    newCnt.countDate || new Date().toISOString().slice(0, 10),
         status:       newCnt.status || 'draft',
+        lines:        newCnt.lines.map(l => ({
+          productId: Number(l.productId),
+          systemQuantity: parseFloat(l.systemQuantity) || 0,
+          countedQuantity: parseFloat(l.countedQuantity) || 0
+        }))
       };
       if (newCnt.id) {
         await erpApi('/api/inventory/counts/' + newCnt.id, { method: 'PUT', body: JSON.stringify(body) });
@@ -332,7 +345,7 @@ function InventoryCountsPage() {
         await erpApi('/api/inventory/counts', { method: 'POST', body: JSON.stringify(body) });
       }
       setModal(false);
-      setNewCnt({ warehouseId: '', countDate: '' });
+      setNewCnt({ warehouseId: '', countDate: '', lines: [] });
       cR();
     } catch(e) { setActionErr(e.message); }
   };
@@ -353,14 +366,29 @@ function InventoryCountsPage() {
       warehouseId: sel.warehouseId ? String(sel.warehouseId) : '',
       countDate: sel.countDate,
       status: sel.status,
+      lines: (sel.lines || []).map(l => ({
+        productId: String(l.productId),
+        systemQuantity: l.systemQuantity,
+        countedQuantity: l.countedQuantity
+      }))
     });
     setModal(true);
   };
 
+  const addLine = () => setNewCnt(p => ({ ...p, lines: [...p.lines, { productId: '', systemQuantity: 0, countedQuantity: 0 }] }));
+  
+  const updateLine = (idx, k, v) => {
+    const lines = [...newCnt.lines];
+    lines[idx][k] = v;
+    setNewCnt(p => ({ ...p, lines }));
+  };
+
+  const removeLine = (idx) => setNewCnt(p => ({ ...p, lines: p.lines.filter((_, i) => i !== idx) }));
+
   return (
     <div>
       <PageHeader title="Inventory Counts" subtitle="Manage physical stock audits">
-        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewCnt({ warehouseId: '', countDate: '' }); setModal(true); }}>+ Create Count</button>
+        <button className="btn btn--primary" onClick={() => { setActionErr(''); setNewCnt({ warehouseId: '', countDate: '', lines: [] }); setModal(true); }}>+ Create Count</button>
       </PageHeader>
       {cE ? <PageError message={cE} onRetry={cR}/> : cL ? <PageLoad/> : (
         <div className="page-split">
@@ -380,11 +408,20 @@ function InventoryCountsPage() {
               <DPRow label="Date"      value={fmtDate(sel.countDate)}/>
               <DPRow label="Status"    value={<Badge status={sel.status}/>}/>
               <DPRow label="Created"   value={fmtDateTime(sel.createdAt)}/>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Counted Lines</div>
+                {(sel.lines || []).map((l, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <span>{prodMap[l.productId] || 'Product #'+l.productId}</span>
+                    <span>System: {l.systemQuantity} / Counted: {l.countedQuantity} / Var: <span style={{color: l.varianceQuantity < 0 ? '#ef4444' : (l.varianceQuantity > 0 ? '#10b981' : 'inherit')}}>{l.varianceQuantity}</span></span>
+                  </div>
+                ))}
+              </div>
             </>}
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title={newCnt.id ? 'Edit Count' : 'Create Inventory Count'} width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newCnt.id ? 'Edit Count' : 'Create Inventory Count'} width={650}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
           <button className="btn btn--primary" onClick={doSave}>{newCnt.id ? 'Save Changes' : 'Create'}</button>
@@ -396,6 +433,28 @@ function InventoryCountsPage() {
           placeholder="All warehouses"/>
         <FormInput label="Count Date" type="date" value={newCnt.countDate}
           onChange={v => setNewCnt(p => ({...p, countDate: v}))} required/>
+        
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Count Lines</span>
+            <button className="btn btn--secondary btn--sm" onClick={addLine}>+ Add Line</button>
+          </div>
+          {newCnt.lines.map((l, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 2 }}>
+                <FormSelect label={idx === 0 ? "Product" : ""} value={l.productId} onChange={v => updateLine(idx, 'productId', v)}
+                  options={products.map(p => ({ value: String(p.productId), label: p.productName }))}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "System Qty" : ""} type="number" value={l.systemQuantity} onChange={v => updateLine(idx, 'systemQuantity', v)}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Counted Qty" : ""} type="number" value={l.countedQuantity} onChange={v => updateLine(idx, 'countedQuantity', v)}/>
+              </div>
+              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px' }}>✕</button>
+            </div>
+          ))}
+        </div>
       </Modal>
     </div>
   );

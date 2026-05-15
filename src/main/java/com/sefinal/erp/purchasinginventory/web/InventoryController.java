@@ -45,6 +45,13 @@ public class InventoryController {
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('INVENTORY.create')")
     public InventoryCount createInventoryCount(@RequestBody InventoryCount inventoryCount) {
         inventoryCount.setCompanyId(SecurityUtils.getCompanyId());
+        if (inventoryCount.getLines() != null) {
+            for (var line : inventoryCount.getLines()) {
+                if (line.getSystemQuantity() == null) line.setSystemQuantity(BigDecimal.ZERO);
+                if (line.getCountedQuantity() == null) line.setCountedQuantity(BigDecimal.ZERO);
+                line.setVarianceQuantity(line.getCountedQuantity().subtract(line.getSystemQuantity()));
+            }
+        }
         return inventoryCountDao.save(inventoryCount);
     }
 
@@ -55,6 +62,13 @@ public class InventoryController {
         if (!inventoryCountDao.existsById(id)) return ResponseEntity.notFound().build();
         inventoryCount.setCountId(id);
         inventoryCount.setCompanyId(SecurityUtils.getCompanyId());
+        if (inventoryCount.getLines() != null) {
+            for (var line : inventoryCount.getLines()) {
+                if (line.getSystemQuantity() == null) line.setSystemQuantity(BigDecimal.ZERO);
+                if (line.getCountedQuantity() == null) line.setCountedQuantity(BigDecimal.ZERO);
+                line.setVarianceQuantity(line.getCountedQuantity().subtract(line.getSystemQuantity()));
+            }
+        }
         return ResponseEntity.ok(inventoryCountDao.save(inventoryCount));
     }
 

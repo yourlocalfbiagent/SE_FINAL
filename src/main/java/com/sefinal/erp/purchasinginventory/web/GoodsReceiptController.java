@@ -1,7 +1,9 @@
 package com.sefinal.erp.purchasinginventory.web;
 
 import com.sefinal.erp.purchasinginventory.dao.GoodsReceiptDao;
+import com.sefinal.erp.purchasinginventory.dao.PurchaseOrderDao;
 import com.sefinal.erp.purchasinginventory.model.GoodsReceipt;
+import com.sefinal.erp.purchasinginventory.model.PurchaseOrder;
 import com.sefinal.erp.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,9 +20,11 @@ import java.util.List;
 public class GoodsReceiptController {
 
     private final GoodsReceiptDao goodsReceiptDao;
+    private final PurchaseOrderDao purchaseOrderDao;
 
-    public GoodsReceiptController(GoodsReceiptDao goodsReceiptDao) {
+    public GoodsReceiptController(GoodsReceiptDao goodsReceiptDao, PurchaseOrderDao purchaseOrderDao) {
         this.goodsReceiptDao = goodsReceiptDao;
+        this.purchaseOrderDao = purchaseOrderDao;
     }
 
     @GetMapping
@@ -38,7 +42,16 @@ public class GoodsReceiptController {
             goodsReceipt.setReceiptNumber("GR-" + System.currentTimeMillis());
         if (goodsReceipt.getStatus() == null || goodsReceipt.getStatus().isBlank())
             goodsReceipt.setStatus("received");
-        return goodsReceiptDao.save(goodsReceipt);
+        
+        GoodsReceipt saved = goodsReceiptDao.save(goodsReceipt);
+
+        if (saved.getPoId() != null) {
+            purchaseOrderDao.findById(saved.getPoId()).ifPresent(po -> {
+                po.setStatus("RECEIVED");
+                purchaseOrderDao.save(po);
+            });
+        }
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -52,7 +65,17 @@ public class GoodsReceiptController {
             goodsReceipt.setReceiptNumber("GR-" + System.currentTimeMillis());
         if (goodsReceipt.getStatus() == null || goodsReceipt.getStatus().isBlank())
             goodsReceipt.setStatus("received");
-        return ResponseEntity.ok(goodsReceiptDao.save(goodsReceipt));
+        
+        GoodsReceipt updated = goodsReceiptDao.save(goodsReceipt);
+
+        if ("received".equalsIgnoreCase(updated.getStatus()) && updated.getPoId() != null) {
+            purchaseOrderDao.findById(updated.getPoId()).ifPresent(po -> {
+                po.setStatus("RECEIVED");
+                purchaseOrderDao.save(po);
+            });
+        }
+
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

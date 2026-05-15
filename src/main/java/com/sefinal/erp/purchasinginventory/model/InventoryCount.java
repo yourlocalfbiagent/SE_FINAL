@@ -37,4 +37,8 @@ public class InventoryCount {
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "count_id")
+    private java.util.List<InventoryCountLine> lines;
 }

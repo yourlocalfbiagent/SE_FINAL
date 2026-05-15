@@ -41,8 +41,21 @@ public class PurchaseOrderController {
         // supplier_id mirrors partner_id — both columns are NOT NULL in the DB
         if (purchaseOrder.getSupplierId() == null) purchaseOrder.setSupplierId(purchaseOrder.getPartnerId());
         if (purchaseOrder.getCreatedAt() == null) purchaseOrder.setCreatedAt(LocalDateTime.now());
-        if (purchaseOrder.getStatus() == null || purchaseOrder.getStatus().isBlank()) purchaseOrder.setStatus("pending");
-        if (purchaseOrder.getTotalAmount() == null) purchaseOrder.setTotalAmount(BigDecimal.ZERO);
+        if (purchaseOrder.getStatus() == null || purchaseOrder.getStatus().isBlank()) purchaseOrder.getStatus("pending");
+        
+        if (purchaseOrder.getLines() != null) {
+            BigDecimal total = BigDecimal.ZERO;
+            for (var line : purchaseOrder.getLines()) {
+                if (line.getQuantityOrdered() == null) line.setQuantityOrdered(BigDecimal.ZERO);
+                if (line.getUnitCost() == null) line.setUnitCost(BigDecimal.ZERO);
+                line.setLineTotal(line.getUnitCost().multiply(line.getQuantityOrdered()));
+                total = total.add(line.getLineTotal());
+            }
+            purchaseOrder.setTotalAmount(total);
+        } else if (purchaseOrder.getTotalAmount() == null) {
+            purchaseOrder.setTotalAmount(BigDecimal.ZERO);
+        }
+
         if (purchaseOrder.getOrderDate() == null) purchaseOrder.setOrderDate(LocalDate.now());
         PurchaseOrder saved = purchaseOrderDao.save(purchaseOrder);
         return ResponseEntity.created(URI.create("/api/purchase-orders/" + saved.getPoId())).body(saved);
@@ -56,6 +69,20 @@ public class PurchaseOrderController {
         purchaseOrder.setPoId(id);
         purchaseOrder.setCompanyId(SecurityUtils.getCompanyId());
         if (purchaseOrder.getSupplierId() == null) purchaseOrder.setSupplierId(purchaseOrder.getPartnerId());
+        
+        if (purchaseOrder.getLines() != null) {
+            BigDecimal total = BigDecimal.ZERO;
+            for (var line : purchaseOrder.getLines()) {
+                if (line.getQuantityOrdered() == null) line.setQuantityOrdered(BigDecimal.ZERO);
+                if (line.getUnitCost() == null) line.setUnitCost(BigDecimal.ZERO);
+                line.setLineTotal(line.getUnitCost().multiply(line.getQuantityOrdered()));
+                total = total.add(line.getLineTotal());
+            }
+            purchaseOrder.setTotalAmount(total);
+        } else if (purchaseOrder.getTotalAmount() == null) {
+            purchaseOrder.setTotalAmount(BigDecimal.ZERO);
+        }
+
         return ResponseEntity.ok(purchaseOrderDao.save(purchaseOrder));
     }
 

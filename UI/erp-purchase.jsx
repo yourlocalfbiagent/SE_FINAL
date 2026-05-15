@@ -39,9 +39,10 @@ function PurchaseOrdersPage() {
   const [sel, setSel]             = useState(null);
   const [modal, setModal]         = useState(false);
   const [actionErr, setActionErr] = useState('');
-  const [newPO, setNewPO]         = useState({ partnerId: '', orderDate: '', totalAmount: '' });
+  const [newPO, setNewPO]         = useState({ partnerId: '', orderDate: '', lines: [] });
 
   const { data: partnersRaw } = useLoad(() => erpApi('/api/business-partners'));
+  const { data: productsRaw } = useLoad(() => erpApi('/api/products'));
   const partnerMap = usePartnerMap();
   const { data: poRaw, loading, error, reload } = useLoad(() => erpApi('/api/purchase-orders'));
 
@@ -49,6 +50,8 @@ function PurchaseOrdersPage() {
     () => (partnersRaw || []).filter(p => !p.type || p.type.toUpperCase() === 'SUPPLIER'),
     [partnersRaw]
   );
+  
+  const products = productsRaw || [];
 
   const pos = React.useMemo(() => (poRaw || []).map(p => ({
     ...p,
@@ -59,13 +62,19 @@ function PurchaseOrdersPage() {
   const doSave = async () => {
     setActionErr('');
     if (!newPO.partnerId) { setActionErr('Please select a supplier'); return; }
+    if (!newPO.lines || newPO.lines.length === 0) { setActionErr('Please add at least one line item'); return; }
+    
     try {
       const body = {
         poNumber:    newPO.id ? newPO.poNumber : 'PO-' + Date.now(),
         partnerId:   Number(newPO.partnerId),
         orderDate:   newPO.orderDate || new Date().toISOString().slice(0, 10),
-        totalAmount: parseFloat(newPO.totalAmount) || 0,
         status:      newPO.status || 'pending',
+        lines:       newPO.lines.map(l => ({
+          productId: Number(l.productId),
+          quantityOrdered: parseFloat(l.quantityOrdered),
+          unitCost: parseFloat(l.unitCost)
+        }))
       };
       if (newPO.id) {
         await erpApi('/api/purchase-orders/' + newPO.id, { method: 'PUT', body: JSON.stringify(body) });
@@ -92,17 +101,35 @@ function PurchaseOrdersPage() {
       poNumber: sel.poNumber,
       partnerId: String(sel.partnerId),
       orderDate: sel.orderDate,
-      totalAmount: String(sel.totalAmount),
       status: sel.status,
+      lines: (sel.lines || []).map(l => ({
+        productId: String(l.productId),
+        quantityOrdered: String(l.quantityOrdered),
+        unitCost: String(l.unitCost)
+      }))
     });
     setModal(true);
   };
 
   const openModal = () => {
     setActionErr('');
-    setNewPO({ partnerId: '', orderDate: new Date().toISOString().slice(0, 10), totalAmount: '' });
+    setNewPO({ partnerId: '', orderDate: new Date().toISOString().slice(0, 10), lines: [{ productId: '', quantityOrdered: 1, unitCost: 0 }] });
     setModal(true);
   };
+
+  const addLine = () => setNewPO(p => ({ ...p, lines: [...p.lines, { productId: '', quantityOrdered: 1, unitCost: 0 }] }));
+  
+  const updateLine = (idx, k, v) => {
+    const lines = [...newPO.lines];
+    lines[idx][k] = v;
+    if (k === 'productId') {
+      const prod = products.find(p => String(p.productId) === v);
+      if (prod) lines[idx].unitCost = prod.costPrice || 0;
+    }
+    setNewPO(p => ({ ...p, lines }));
+  };
+
+  const removeLine = (idx) => setNewPO(p => ({ ...p, lines: p.lines.filter((_, i) => i !== idx) }));
 
   return (
     <div>
@@ -128,13 +155,25 @@ function PurchaseOrdersPage() {
               <DPRow label="Supplier"   value={sel.partnerName}/>
               <DPRow label="Status"     value={<Badge status={sel.status}/>}/>
               <DPRow label="Order Date" value={fmtDate(sel.orderDate)}/>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Order Lines</div>
+                {(sel.lines || []).map((l, i) => {
+                  const prod = products.find(p => p.productId === l.productId);
+                  return (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                      <span>{prod ? prod.productName : 'Product #'+l.productId} x {l.quantityOrdered}</span>
+                      <span>{fmt$(l.lineTotal || (l.quantityOrdered * l.unitCost))}</span>
+                    </div>
+                  );
+                })}
+              </div>
               <hr className="dp__divider"/>
               <DPRow label="Total"      value={fmt$(sel.totalAmount)} bold/>
             </>}
           </DetailPanel>
         </div>
       )}
-      <Modal open={modal} onClose={() => setModal(false)} title={newPO.id ? 'Edit PO' : 'Create Purchase Order'} width={500}
+      <Modal open={modal} onClose={() => setModal(false)} title={newPO.id ? 'Edit PO' : 'Create Purchase Order'} width={650}
         footer={<>
           <button className="btn btn--ghost" onClick={() => setModal(false)}>Cancel</button>
           <button className="btn btn--primary" onClick={doSave}>{newPO.id ? 'Save Changes' : 'Create PO'}</button>
@@ -147,10 +186,32 @@ function PurchaseOrdersPage() {
         <FormRow>
           <FormInput label="Order Date" type="date" value={newPO.orderDate}
             onChange={v => setNewPO(p => ({ ...p, orderDate: v }))} required/>
-          <FormInput label="Total Amount" type="number" value={newPO.totalAmount}
-            onChange={v => setNewPO(p => ({ ...p, totalAmount: v }))}
-            placeholder="0.00"/>
         </FormRow>
+        
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Order Lines</span>
+            <button className="btn btn--secondary btn--sm" onClick={addLine}>+ Add Line</button>
+          </div>
+          {newPO.lines.map((l, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 2 }}>
+                <FormSelect label={idx === 0 ? "Product" : ""} value={l.productId} onChange={v => updateLine(idx, 'productId', v)}
+                  options={products.map(p => ({ value: String(p.productId), label: p.productName }))}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Qty" : ""} type="number" value={l.quantityOrdered} onChange={v => updateLine(idx, 'quantityOrdered', v)}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Cost" : ""} type="number" value={l.unitCost} onChange={v => updateLine(idx, 'unitCost', v)}/>
+              </div>
+              <div style={{ flex: 1 }}>
+                <FormInput label={idx === 0 ? "Total" : ""} type="text" value={((parseFloat(l.quantityOrdered)||0) * (parseFloat(l.unitCost)||0)).toFixed(2)} disabled/>
+              </div>
+              <button className="btn btn--ghost btn--sm" onClick={() => removeLine(idx)} style={{ color: '#ef4444', padding: '8px' }}>✕</button>
+            </div>
+          ))}
+        </div>
       </Modal>
     </div>
   );
@@ -325,6 +386,18 @@ function SupplierBillsPage() {
     setModal(true);
   };
 
+  const recordPayment = async () => {
+    if (!sel) return;
+    try {
+      await erpApi('/api/supplier-bills/' + sel.billId, {
+        method: 'PUT',
+        body: JSON.stringify({ ...sel, status: 'paid' })
+      });
+      setSel(null);
+      reload();
+    } catch(e) { alert(e.message); }
+  };
+
   return (
     <div>
       <PageHeader title="Supplier Bills" subtitle="Manage accounts payable">
@@ -342,8 +415,8 @@ function SupplierBillsPage() {
                   <button className="btn btn--secondary btn--sm" style={{ flex: 1 }} onClick={openEdit}>Edit</button>
                   <button className="btn btn--danger btn--sm" onClick={doDelete}>Delete</button>
                 </div>
-                {['draft','unpaid','overdue'].includes((sel.status||'').toLowerCase()) && (
-                  <button className="btn btn--primary btn--sm" style={{ width: '100%' }}>Record Payment</button>
+                {['draft','unpaid','overdue','pending'].includes((sel.status||'').toLowerCase()) && (
+                  <button className="btn btn--primary btn--sm" style={{ width: '100%' }} onClick={recordPayment}>Record Payment</button>
                 )}
               </div>
             )}>

@@ -45,4 +45,8 @@ public class PurchaseOrder {
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "po_id")
+    private java.util.List<PurchaseOrderLine> lines;
 }
