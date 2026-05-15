@@ -20,6 +20,6 @@ public class OpenApiConfig {
                         .description("Unified ERP covering Sales, Purchasing & Inventory modules")
                         .version("1.0.0")
                         .contact(new Contact().name("SE Final Team")))
-                .servers(List.of(new Server().url("http://localhost:8080").description("Local")));
+                .servers(List.of(new Server().url("/").description("Current Server")));
     }
 }
