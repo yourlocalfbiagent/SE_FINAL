@@ -48,10 +48,12 @@ references/
 !.env.example
 
 # Spring config with credentials
-src/main/resources/application.yaml
-src/main/resources/application-*.yaml
-src/main/resources/application.properties
-src/main/resources/application-*.properties
+**/application.yaml
+**/application-*.yaml
+**/application.properties
+**/application-*.properties
+application.yaml
+application.properties
 
 # Claude Code
 .claude/
@@ -61,11 +63,14 @@ CLAUDE.md
 GEMINI.md
 Gemini/
 
-# Auto-generated GitHub tooling
-
 # Markdown planning files
 plan.md
 JIRA_BACKLOG.md
 
 # Auto-generated GitHub tooling
 .github/java-upgrade/
+
+# Gemini local config
+/gemini
+
+
